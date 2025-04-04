@@ -1,13 +1,78 @@
 import 'package:http/http.dart' as http;
 import 'dart:async';
+import 'dart:convert';
+import 'package:flutter/foundation.dart';
+
+/// Result from fetching content, containing the content and metadata
+class FetchResult {
+  final String content;
+  final bool isMarkdown;
+  final String contentType;
+  final String url;
+  
+  FetchResult({
+    required this.content,
+    required this.isMarkdown,
+    required this.contentType,
+    required this.url,
+  });
+}
 
 /// Service for fetching markdown content from URLs.
 class MarkdownService {
-  /// Fetches markdown content from a URL.
+  
+  /// Attempts to determine if content is markdown.
+  bool isLikelyMarkdown(String content, String contentType, String url) {
+    // First check the content type header
+    if (contentType.isNotEmpty) {
+      final lowerCaseType = contentType.toLowerCase();
+      if (lowerCaseType.contains('markdown') || 
+          lowerCaseType.contains('text/md') ||
+          lowerCaseType.contains('text/x-markdown')) {
+        return true;
+      }
+      
+      // Common non-markdown content types
+      if (lowerCaseType.contains('html') ||
+          lowerCaseType.contains('pdf') ||
+          lowerCaseType.contains('application/') ||
+          lowerCaseType.contains('image/') ||
+          lowerCaseType.contains('audio/') ||
+          lowerCaseType.contains('video/')) {
+        return false;
+      }
+    }
+    
+    // Check content for markdown indicators
+    if (content.length > 100) {
+      // Look for markdown headings
+      if (RegExp(r'^#+ ').hasMatch(content)) return true;
+      
+      // Look for markdown links
+      if (RegExp(r'\[.+\]\(.+\)').hasMatch(content)) return true;
+      
+      // Look for HTML tags (indicating likely HTML, not markdown)
+      if (RegExp(r'<!DOCTYPE html>', caseSensitive: false).hasMatch(content) ||
+          RegExp(r'<html', caseSensitive: false).hasMatch(content)) {
+        return false;
+      }
+    }
+    
+    // Check URL for markdown file extension
+    if (url.toLowerCase().endsWith('.md') || 
+        url.toLowerCase().endsWith('.markdown')) {
+      return true;
+    }
+    
+    // Default to treating it as markdown if we can't determine
+    return true;
+  }
+
+  /// Fetches content from a URL and determines if it's markdown.
   /// 
-  /// Returns the markdown content as a string.
+  /// Returns a FetchResult with the content and metadata.
   /// Throws an exception if the fetch fails.
-  Future<String> fetchMarkdown(String url) async {
+  Future<FetchResult> fetchContent(String url) async {
     try {
       // Ensure the URL has a valid scheme
       Uri uri = Uri.parse(url);
@@ -16,7 +81,7 @@ class MarkdownService {
         uri = Uri.parse('https://$url');
       }
 
-      print('Fetching markdown from: $uri');
+      print('Fetching content from: $uri');
 
       // Timeout after 10 seconds
       final response = await http.get(uri).timeout(
@@ -28,19 +93,40 @@ class MarkdownService {
       
       if (response.statusCode == 200) {
         print('Successfully fetched content from $uri');
-        return response.body;
+        
+        // Extract content type from headers
+        String contentType = '';
+        if (response.headers.containsKey('content-type')) {
+          contentType = response.headers['content-type'] ?? '';
+        }
+        
+        // Determine if the content is likely markdown
+        bool isMarkdown = isLikelyMarkdown(response.body, contentType, url);
+        
+        return FetchResult(
+          content: response.body,
+          isMarkdown: isMarkdown,
+          contentType: contentType,
+          url: url,
+        );
       } else {
         print('Failed to fetch content: Status code ${response.statusCode}');
-        return _getErrorMarkdown('Failed to load content', 
-          'Server returned status code ${response.statusCode}');
+        return FetchResult(
+          content: _getErrorMarkdown('Failed to load content', 
+            'Server returned status code ${response.statusCode}'),
+          isMarkdown: true, // Errors are displayed as markdown
+          contentType: 'text/markdown',
+          url: url,
+        );
       }
     } catch (e) {
       print('Error fetching content: $e');
       
+      String errorContent;
       // Return a user-friendly error message based on the exception type
       if (e.toString().contains('SocketException') || 
           e.toString().contains('Connection failed')) {
-        return _getErrorMarkdown('Network Error', 
+        errorContent = _getErrorMarkdown('Network Error', 
           '''Could not connect to $url
           
 Possible causes:
@@ -50,11 +136,18 @@ Possible causes:
 
 Technical details: $e''');
       } else if (e.toString().contains('TimeoutException')) {
-        return _getErrorMarkdown('Request Timed Out', 
+        errorContent = _getErrorMarkdown('Request Timed Out', 
           'The request to $url took too long to complete.\n\nTechnical details: $e');
       } else {
-        return _getErrorMarkdown('Error fetching content', e.toString());
+        errorContent = _getErrorMarkdown('Error fetching content', e.toString());
       }
+      
+      return FetchResult(
+        content: errorContent,
+        isMarkdown: true, // Errors are displayed as markdown
+        contentType: 'text/markdown',
+        url: url,
+      );
     }
   }
 
@@ -86,5 +179,15 @@ $details
 
 Please check the URL and try again.
 ''';
+  }
+  
+  /// Legacy method for backward compatibility
+  Future<String> fetchMarkdown(String url) async {
+    try {
+      final result = await fetchContent(url);
+      return result.content;
+    } catch (e) {
+      return _getErrorMarkdown('Error fetching content', e.toString());
+    }
   }
 }
