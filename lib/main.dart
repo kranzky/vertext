@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'services/markdown_service.dart';
@@ -42,6 +45,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
   // Default homepage URL as specified in the project requirements
   static const String _homeUrl = 'https://mmm.kranzky.com';
   
+  // Storage key for saving browser state
+  static const String _storageKey = 'vertext_browser_state';
+  
   // Browser state for tab management
   late BrowserState _browserState;
   
@@ -58,12 +64,7 @@ class _BrowserScreenState extends State<BrowserScreen> {
   void initState() {
     super.initState();
     
-    // Initialize browser state with home URL
-    _browserState = BrowserState(
-      homeUrl: _homeUrl,
-    );
-    
-    // Create initial home tab
+    // Create a default browser state (will be replaced if we can restore)
     final initialTab = TabModel(
       id: _uuid.v4(),
       url: _homeUrl,
@@ -72,14 +73,72 @@ class _BrowserScreenState extends State<BrowserScreen> {
       isLoading: true,
     );
     
-    // Set the initial tab
     _browserState = BrowserState(
       homeUrl: _homeUrl,
       initialLeftTab: initialTab,
     );
     
-    // Load content for the home tab
-    _loadTabContent(initialTab, _homeUrl, null);
+    // Attempt to restore state, then load any necessary content
+    _restoreBrowserState().then((_) {
+      // After restoring (or using default), load content for active tabs
+      if (_browserState.leftColumn.activeTab != null) {
+        _loadTabContent(
+          _browserState.leftColumn.activeTab!,
+          _browserState.leftColumn.activeTab!.url,
+          null
+        );
+      }
+      
+      if (_browserState.rightColumn.activeTab != null) {
+        _loadTabContent(
+          _browserState.rightColumn.activeTab!,
+          _browserState.rightColumn.activeTab!.url,
+          null
+        );
+      }
+    });
+  }
+  
+  /// Attempts to restore browser state from storage.
+  /// Returns true if successful, false otherwise.
+  Future<bool> _restoreBrowserState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stateJson = prefs.getString(_storageKey);
+      
+      if (stateJson != null) {
+        // Attempt to decode and restore state
+        final Map<String, dynamic> stateMap = jsonDecode(stateJson);
+        final restoredState = BrowserState.fromJson(stateMap);
+        
+        setState(() {
+          _browserState = restoredState;
+          _isInitializing = false;
+        });
+        
+        debugPrint('Restored browser state with ${_browserState.leftColumn.tabs.length} tabs in left column, '
+            '${_browserState.rightColumn.tabs.length} tabs in right column');
+        return true;
+      }
+    } catch (e) {
+      debugPrint('Error restoring browser state: $e');
+    }
+    
+    return false;
+  }
+  
+  /// Saves the current browser state to storage.
+  Future<void> _saveBrowserState() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final stateMap = _browserState.toJson();
+      final stateJson = jsonEncode(stateMap);
+      
+      await prefs.setString(_storageKey, stateJson);
+      debugPrint('Saved browser state');
+    } catch (e) {
+      debugPrint('Error saving browser state: $e');
+    }
   }
   
   // Load content for a tab
@@ -138,6 +197,9 @@ _Click on another markdown link to load content in this pane._
             
             _isInitializing = false;
           });
+          
+          // Save state after updating tab content
+          _saveBrowserState();
         } else {
           setState(() {
             // Update the tab with the fetched markdown content
@@ -148,6 +210,9 @@ _Click on another markdown link to load content in this pane._
             
             _isInitializing = false;
           });
+          
+          // Save state after updating tab content
+          _saveBrowserState();
         }
       }
     } catch (e) {
@@ -463,6 +528,9 @@ In a future version, we plan to implement this feature.
       });
       
       _loadTabContent(newTab, url, null);
+      
+      // Save state after adding a new tab
+      _saveBrowserState();
     }
   }
   
@@ -473,6 +541,9 @@ In a future version, we plan to implement this feature.
     setState(() {
       column.activeTabIndex = index;
     });
+    
+    // Save state after changing active tab
+    _saveBrowserState();
   }
   
   // Handle closing a tab
@@ -493,15 +564,29 @@ In a future version, we plan to implement this feature.
         }
       }
     });
+    
+    // Save state after closing a tab
+    _saveBrowserState();
   }
   
   // Handle reopening a closed tab
   void _handleReopenTab(bool inLeftColumn) {
     final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
+    final reopenedTab = column.reopenClosedTab();
     
-    setState(() {
-      column.reopenClosedTab();
-    });
+    if (reopenedTab != null) {
+      setState(() {
+        // Update UI
+      });
+      
+      // Save state after reopening a tab
+      _saveBrowserState();
+      
+      // Refresh content if needed
+      if (reopenedTab.content.isEmpty || reopenedTab.isLoading) {
+        _loadTabContent(reopenedTab, reopenedTab.url, null);
+      }
+    }
   }
   
   // Handle reordering tabs within a column
@@ -523,6 +608,9 @@ In a future version, we plan to implement this feature.
         }
       }
     });
+    
+    // Save state after reordering tabs
+    _saveBrowserState();
   }
   
   // Handle moving a tab to the other column
@@ -536,75 +624,79 @@ In a future version, we plan to implement this feature.
         _browserState.moveTabBetweenColumns(fromLeft, tabIndex);
       }
     });
+    
+    // Save state after moving a tab
+    _saveBrowserState();
   }
+
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: Row(
-          children: [
-            Text(widget.title),
-            if (_browserState.leftColumn.activeTab != null)
-              const SizedBox(width: 16),
-            if (_browserState.leftColumn.activeTab != null)
-              Expanded(
-                child: Text(
-                  '| ${_browserState.leftColumn.activeTab!.title}',
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.normal,
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          title: Row(
+            children: [
+              Text(widget.title),
+              if (_browserState.leftColumn.activeTab != null)
+                const SizedBox(width: 16),
+              if (_browserState.leftColumn.activeTab != null)
+                Expanded(
+                  child: Text(
+                    '| ${_browserState.leftColumn.activeTab!.title}',
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.normal,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
-                  overflow: TextOverflow.ellipsis,
                 ),
+            ],
+          ),
+          // Network status indicator
+          bottom: _isInitializing
+              ? PreferredSize(
+                  preferredSize: const Size.fromHeight(4.0),
+                  child: LinearProgressIndicator(
+                    backgroundColor: Colors.blue.shade100,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade700),
+                  ),
+                )
+              : null,
+        ),
+        body: Row(
+          children: [
+            // Left column (50% width)
+            Expanded(
+              child: BrowserColumn(
+                columnModel: _browserState.leftColumn,
+                onNewTab: () => _handleNewTab(true),
+                onSelectTab: (index) => _handleSelectTab(true, index),
+                onCloseTab: (index) => _handleCloseTab(true, index),
+                onReopenTab: () => _handleReopenTab(true),
+                onReorderTab: (oldIndex, newIndex) => 
+                    _handleReorderTab(true, oldIndex, newIndex),
+                onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(true, tab),
+                onLinkTap: _handleLinkTap,
               ),
+            ),
+            
+            // Right column (50% width)
+            Expanded(
+              child: BrowserColumn(
+                columnModel: _browserState.rightColumn,
+                onNewTab: () => _handleNewTab(false),
+                onSelectTab: (index) => _handleSelectTab(false, index),
+                onCloseTab: (index) => _handleCloseTab(false, index),
+                onReopenTab: () => _handleReopenTab(false),
+                onReorderTab: (oldIndex, newIndex) => 
+                    _handleReorderTab(false, oldIndex, newIndex),
+                onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(false, tab),
+                onLinkTap: _handleLinkTap,
+              ),
+            ),
           ],
         ),
-        // Network status indicator
-        bottom: _isInitializing
-            ? PreferredSize(
-                preferredSize: const Size.fromHeight(4.0),
-                child: LinearProgressIndicator(
-                  backgroundColor: Colors.blue.shade100,
-                  valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade700),
-                ),
-              )
-            : null,
-      ),
-      body: Row(
-        children: [
-          // Left column (50% width)
-          Expanded(
-            child: BrowserColumn(
-              columnModel: _browserState.leftColumn,
-              onNewTab: () => _handleNewTab(true),
-              onSelectTab: (index) => _handleSelectTab(true, index),
-              onCloseTab: (index) => _handleCloseTab(true, index),
-              onReopenTab: () => _handleReopenTab(true),
-              onReorderTab: (oldIndex, newIndex) => 
-                  _handleReorderTab(true, oldIndex, newIndex),
-              onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(true, tab),
-              onLinkTap: _handleLinkTap,
-            ),
-          ),
-          
-          // Right column (50% width)
-          Expanded(
-            child: BrowserColumn(
-              columnModel: _browserState.rightColumn,
-              onNewTab: () => _handleNewTab(false),
-              onSelectTab: (index) => _handleSelectTab(false, index),
-              onCloseTab: (index) => _handleCloseTab(false, index),
-              onReopenTab: () => _handleReopenTab(false),
-              onReorderTab: (oldIndex, newIndex) => 
-                  _handleReorderTab(false, oldIndex, newIndex),
-              onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(false, tab),
-              onLinkTap: _handleLinkTap,
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

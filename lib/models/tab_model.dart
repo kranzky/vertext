@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 /// A model representing a browser tab in the Vertext application.
 /// 
 /// This stores all the data needed for a tab, including its content,
@@ -34,6 +36,33 @@ class TabModel {
   }) : 
     history = [url],
     historyIndex = 0;
+  
+  /// Creates a TabModel from a JSON map.
+  factory TabModel.fromJson(Map<String, dynamic> json) {
+    return TabModel(
+      id: json['id'] as String,
+      url: json['url'] as String,
+      title: json['title'] as String,
+      content: json['content'] as String,
+      isLoading: false, // Always start non-loading when restoring
+    )
+    // Set history and historyIndex after constructor
+    ..history.clear()
+    ..history.addAll((json['history'] as List).cast<String>())
+    ..historyIndex = json['historyIndex'] as int;
+  }
+  
+  /// Converts this tab model to a JSON map.
+  Map<String, dynamic> toJson() {
+    return {
+      'id': id,
+      'url': url,
+      'title': title,
+      'content': content,
+      'history': history,
+      'historyIndex': historyIndex,
+    };
+  }
   
   /// Navigates to a new URL, updating history.
   void navigateTo(String newUrl) {
@@ -88,5 +117,10 @@ class TabModel {
       return url;
     }
     return url;
+  }
+  
+  @override
+  String toString() {
+    return 'TabModel{id: $id, url: $url, title: $title, historyIndex: $historyIndex, historyLength: ${history.length}}';
   }
 }

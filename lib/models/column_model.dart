@@ -26,6 +26,41 @@ class ColumnModel {
         activeTabIndex = initialTab != null ? 0 : -1,
         _closedTabs = [];
   
+  /// Creates a ColumnModel from JSON.
+  factory ColumnModel.fromJson(Map<String, dynamic> json) {
+    final columnModel = ColumnModel()
+      ..activeTabIndex = json['activeTabIndex'] as int;
+    
+    // Convert tabs list
+    final tabsList = json['tabs'] as List;
+    for (final tabJson in tabsList) {
+      columnModel.tabs.add(
+        TabModel.fromJson(tabJson as Map<String, dynamic>),
+      );
+    }
+    
+    // Convert closed tabs list
+    if (json.containsKey('closedTabs')) {
+      final closedTabsList = json['closedTabs'] as List;
+      for (final tabJson in closedTabsList) {
+        columnModel._closedTabs.add(
+          TabModel.fromJson(tabJson as Map<String, dynamic>),
+        );
+      }
+    }
+    
+    return columnModel;
+  }
+  
+  /// Converts this column model to JSON.
+  Map<String, dynamic> toJson() {
+    return {
+      'activeTabIndex': activeTabIndex,
+      'tabs': tabs.map((tab) => tab.toJson()).toList(),
+      'closedTabs': _closedTabs.map((tab) => tab.toJson()).toList(),
+    };
+  }
+  
   /// Creates a new tab and adds it to this column.
   TabModel createTab({
     required String url,

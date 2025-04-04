@@ -23,6 +23,52 @@ class BrowserState {
     leftColumn = ColumnModel(initialTab: initialLeftTab),
     rightColumn = ColumnModel();
   
+  /// Creates a BrowserState from JSON data.
+  factory BrowserState.fromJson(Map<String, dynamic> json) {
+    return BrowserState(
+      homeUrl: json['homeUrl'] as String,
+    )
+    // Replace the default columns with the ones from JSON
+    ..leftColumn.tabs.clear()
+    ..rightColumn.tabs.clear()
+    ..leftColumn.activeTabIndex = -1
+    ..rightColumn.activeTabIndex = -1
+    // Then reconstruct from JSON
+    .._reconstructLeftColumn(json['leftColumn'] as Map<String, dynamic>)
+    .._reconstructRightColumn(json['rightColumn'] as Map<String, dynamic>);
+  }
+  
+  /// Helper method to reconstruct the left column from JSON.
+  BrowserState _reconstructLeftColumn(Map<String, dynamic> json) {
+    // Replace the left column with the one from JSON
+    if (json.containsKey('tabs') && (json['tabs'] as List).isNotEmpty) {
+      final columnJson = ColumnModel.fromJson(json);
+      leftColumn.tabs.addAll(columnJson.tabs);
+      leftColumn.activeTabIndex = columnJson.activeTabIndex;
+    }
+    return this;
+  }
+  
+  /// Helper method to reconstruct the right column from JSON.
+  BrowserState _reconstructRightColumn(Map<String, dynamic> json) {
+    // Replace the right column with the one from JSON
+    if (json.containsKey('tabs') && (json['tabs'] as List).isNotEmpty) {
+      final columnJson = ColumnModel.fromJson(json);
+      rightColumn.tabs.addAll(columnJson.tabs);
+      rightColumn.activeTabIndex = columnJson.activeTabIndex;
+    }
+    return this;
+  }
+  
+  /// Converts this browser state to JSON.
+  Map<String, dynamic> toJson() {
+    return {
+      'homeUrl': homeUrl,
+      'leftColumn': leftColumn.toJson(),
+      'rightColumn': rightColumn.toJson(),
+    };
+  }
+  
   /// Opens a new tab in the right column.
   TabModel openInRightColumn({
     required String url,
