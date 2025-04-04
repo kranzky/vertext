@@ -77,8 +77,8 @@ class _LinkDetectorState extends State<LinkDetector> {
                 child: Text(
                   text,
                   style: style.copyWith(
-                    color: Colors.blue,
-                    decoration: TextDecoration.underline,
+                    color: _hoveredLink == url ? Colors.blue.shade700 : Colors.blue.shade500,
+                    decoration: _hoveredLink == url ? TextDecoration.underline : TextDecoration.none,
                   ),
                 ),
               ),
