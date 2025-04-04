@@ -52,7 +52,12 @@ The browser is lightweight and fast, with planned versions for:
 * Links open in the opposite column
 * Lightweight and fast
 
-The browser should begin with the following home page: https://mmm.kranzky.com
+## Try clicking these links:
+
+* [Visit mmm.kranzky.com](https://mmm.kranzky.com)
+* [Example 1: GitHub](https://github.com)
+* [Example 2: Flutter Documentation](https://flutter.dev/docs)
+* [Example 3: Markdown Guide](https://www.markdownguide.org)
 
 _Note: This is a placeholder. In the future, we'll actually fetch and display Markdown content._
 ''';
@@ -63,8 +68,26 @@ _Note: This is a placeholder. In the future, we'll actually fetch and display Ma
   
   // Method to handle link taps
   void _handleLinkTap(String url, String title) {
+    // Debug print to verify handler is being called
+    print('Link tapped: $url, title: $title');
+    
     setState(() {
-      _rightColumnContent = "# $title\n\nLink clicked: $url\n\nIn a future version, this will load actual markdown content from this URL.";
+      _rightColumnContent = """# Link Clicked!
+      
+## Details
+- **URL**: $url
+- **Title**: $title
+
+In a future version, this will load actual markdown content from this URL.
+
+## Sample Content
+This is placeholder content to demonstrate that the link handling is working correctly.
+
+- Item 1
+- Item 2
+- Item 3
+
+""";
       _hasRightContent = true;
     });
   }
