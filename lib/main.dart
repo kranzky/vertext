@@ -37,9 +37,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
   // Service for fetching markdown content
   final MarkdownService _markdownService = MarkdownService();
   
-  // Default homepage URL - using a public GitHub raw content URL for testing
-  // Later we'll switch back to the mmm.kranzky.com domain
-  static const String _homeUrl = 'https://raw.githubusercontent.com/adam-p/markdown-here/master/README.md';
+  // Default homepage URL as specified in the project requirements
+  static const String _homeUrl = 'https://mmm.kranzky.com';
   
   // State variables for content in both columns
   String _leftColumnContent = '';
@@ -92,13 +91,13 @@ class _BrowserScreenState extends State<BrowserScreen> {
         _networkStatus = 'Connecting to ${Uri.parse(_homeUrl).host}...';
       });
       
-      final content = await _markdownService.fetchMarkdown(_homeUrl);
+      final result = await _markdownService.fetchContent(_homeUrl);
       
       // Only update if a timeout didn't occur
       if (!timeoutOccurred) {
         setState(() {
-          _leftColumnContent = content;
-          _leftTitle = _markdownService.extractTitle(content, 'Home');
+          _leftColumnContent = result.content;
+          _leftTitle = _markdownService.extractTitle(result.content, 'Home');
           _isLeftLoading = false;
           _showWelcomeWhileLoading = false;
           _networkStatus = 'Connected successfully!';
@@ -203,7 +202,17 @@ You can try clicking the link again.
       }
     });
     
-    _fetchMarkdownContent(url).then((content) {
+    // Determine base URL for relative links
+    String? baseUrl;
+    if (_hasRightContent) {
+      // If clicking from right column, use right URL as base
+      baseUrl = _rightUrl;
+    } else {
+      // If clicking from left column, use left URL as base
+      baseUrl = _leftUrl;
+    }
+    
+    _fetchMarkdownContent(url, baseUrl).then((content) {
       if (!timeoutOccurred) {
         setState(() {
           _rightColumnContent = content;
@@ -358,20 +367,27 @@ You can try clicking the link again or try a different link.
   }
 
   // Fetch content from a URL
-  Future<String> _fetchMarkdownContent(String url) async {
+  Future<String> _fetchMarkdownContent(String url, [String? baseUrl]) async {
     try {
-      final result = await _markdownService.fetchContent(url);
+      final result = await _markdownService.fetchContent(url, baseUrl);
+      
+      // Update the URL to the resolved one if it was relative
+      if (result.url != url) {
+        setState(() {
+          _rightUrl = result.url;
+        });
+      }
       
       // If content is not markdown, offer to open in system browser
       if (!result.isMarkdown) {
-        await _showNonMarkdownDialog(url, result.contentType);
+        await _showNonMarkdownDialog(result.url, result.contentType);
         
         // Return a message indicating the content was opened externally
         return '''# External Content
 
 This content was opened in your default browser because it's not markdown.
 
-**URL**: $url
+**URL**: ${result.url}
 **Content Type**: ${result.contentType}
 
 _Click on another markdown link to load content in this pane._
@@ -384,7 +400,7 @@ _Click on another markdown link to load content in this pane._
       print('Error fetching content: $e');
       return '''# Error Loading Content
 
-Unable to load content from: $url
+Unable to load content from: $url${baseUrl != null ? ' (relative to $baseUrl)' : ''}
 
 Error details: $e
 ''';

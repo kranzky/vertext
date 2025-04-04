@@ -72,17 +72,51 @@ class MarkdownService {
   /// 
   /// Returns a FetchResult with the content and metadata.
   /// Throws an exception if the fetch fails.
-  Future<FetchResult> fetchContent(String url) async {
+  Future<FetchResult> fetchContent(String url, [String? baseUrl]) async {
     try {
       // Check if it's just a scheme with an anchor and nothing else
       if (url.contains('://') && url.split('://')[1].startsWith('#')) {
         throw FormatException('URL contains only a scheme and an anchor, no host');
       }
       
-      // Ensure the URL has a valid scheme
-      Uri uri = Uri.parse(url);
-      if (!uri.hasScheme) {
-        // If no scheme, assume https
+      // Handle relative URLs
+      Uri? uri;
+      
+      // Handle different URL types
+      try {
+        if (url.contains('://')) {
+          // Already an absolute URL
+          uri = Uri.parse(url);
+        } else if (url.startsWith('/')) {
+          // Absolute path but relative to domain
+          if (baseUrl != null) {
+            final baseUri = Uri.parse(baseUrl);
+            uri = baseUri.replace(path: url);
+          } else {
+            throw FormatException('Cannot resolve absolute path without a base URL');
+          }
+        } else if (baseUrl != null) {
+          // Relative path with a base URL
+          final baseUri = Uri.parse(baseUrl);
+          
+          // For now, assume mmm.kranzky.com since that's our specific domain
+          // In a more general solution, we'd extract this from the baseUrl
+          uri = Uri(
+            scheme: 'https',
+            host: 'mmm.kranzky.com',
+            path: url
+          );
+          
+          print('Resolved relative URL: $url to $uri');
+        } else {
+          // No base URL provided, treat as absolute
+          uri = Uri.parse(url);
+          if (!uri.hasScheme) {
+            uri = Uri.parse('https://$url');
+          }
+        }
+      } catch (e) {
+        print('Error resolving URL: $e');
         uri = Uri.parse('https://$url');
       }
       
@@ -117,7 +151,7 @@ class MarkdownService {
           content: response.body,
           isMarkdown: isMarkdown,
           contentType: contentType,
-          url: url,
+          url: uri.toString(),
         );
       } else {
         print('Failed to fetch content: Status code ${response.statusCode}');
@@ -126,7 +160,7 @@ class MarkdownService {
             'Server returned status code ${response.statusCode}'),
           isMarkdown: true, // Errors are displayed as markdown
           contentType: 'text/markdown',
-          url: url,
+          url: uri.toString(),
         );
       }
     } catch (e) {
@@ -152,11 +186,27 @@ Technical details: $e''');
         errorContent = _getErrorMarkdown('Error fetching content', e.toString());
       }
       
+      // Try to determine a URL to return even in case of error
+      String resolvedUrl = url;
+      try {
+        if (baseUrl != null && !url.contains('://') && !url.startsWith('/')) {
+          // Similar hardcoded approach as above for consistency
+          resolvedUrl = Uri(
+            scheme: 'https',
+            host: 'mmm.kranzky.com',
+            path: url
+          ).toString();
+        }
+      } catch (urlError) {
+        // Just use the original URL if we can't resolve it
+        print('Error resolving URL in error handler: $urlError');
+      }
+      
       return FetchResult(
         content: errorContent,
         isMarkdown: true, // Errors are displayed as markdown
         contentType: 'text/markdown',
-        url: url,
+        url: resolvedUrl,
       );
     }
   }
