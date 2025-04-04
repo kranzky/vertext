@@ -10,6 +10,7 @@ import 'services/markdown_service.dart';
 import 'models/browser_state.dart';
 import 'models/tab_model.dart';
 import 'widgets/browser_column.dart';
+import 'widgets/status_bar_widget.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -178,6 +179,13 @@ class _BrowserScreenState extends State<BrowserScreen> {
   
   // UUID generator for tab IDs
   final Uuid _uuid = const Uuid();
+  
+  // Track hovered URLs for status bar (not used currently)
+  String? _hoveredLinkUrl;
+  
+  // Status bar references to update hovered link state
+  final leftStatusBarKey = GlobalKey();
+  final rightStatusBarKey = GlobalKey();
   
   @override
   void initState() {
@@ -394,6 +402,11 @@ Please check the URL and try again.
 ''';
   }
 
+  // Method to handle hover over links - update status bar
+  void _handleLinkHover(String? url, bool isLeft) {
+    // BrowserColumn now handles hover state internally
+  }
+  
   // Method to handle link taps
   void _handleLinkTap(String url, String title) {
     debugPrint('Link tapped: $url, title: $title');
@@ -797,6 +810,9 @@ In a future version, we plan to implement this feature.
                     _handleReorderTab(true, oldIndex, newIndex),
                 onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(true, tab),
                 onLinkTap: _handleLinkTap,
+                onLinkHover: _handleLinkHover,
+                statusBarKey: leftStatusBarKey,
+                isLeft: true,
               ),
             ),
             
@@ -812,6 +828,9 @@ In a future version, we plan to implement this feature.
                     _handleReorderTab(false, oldIndex, newIndex),
                 onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(false, tab),
                 onLinkTap: _handleLinkTap,
+                onLinkHover: _handleLinkHover,
+                statusBarKey: rightStatusBarKey,
+                isLeft: false,
               ),
             ),
           ],

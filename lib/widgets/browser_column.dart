@@ -4,9 +4,11 @@ import 'package:gpt_markdown/gpt_markdown.dart';
 import '../models/column_model.dart';
 import '../models/tab_model.dart';
 import 'tab_bar_widget.dart';
+import 'status_bar_widget.dart';
+import 'link_detector.dart';
 
 /// A widget that displays a full browser column, including tabs and content.
-class BrowserColumn extends StatelessWidget {
+class BrowserColumn extends StatefulWidget {
   /// The column model containing tabs to display
   final ColumnModel columnModel;
   
@@ -30,6 +32,15 @@ class BrowserColumn extends StatelessWidget {
   
   /// Callback when a link is clicked in the content
   final void Function(String url, String title) onLinkTap;
+  
+  /// Callback when a link is hovered over
+  final void Function(String? url, bool isLeft)? onLinkHover;
+  
+  /// Key for the status bar widget
+  final Key? statusBarKey;
+  
+  /// Whether this is the left column
+  final bool isLeft;
 
   const BrowserColumn({
     super.key,
@@ -41,21 +52,43 @@ class BrowserColumn extends StatelessWidget {
     required this.onReorderTab,
     required this.onMoveToOtherColumn,
     required this.onLinkTap,
+    this.onLinkHover,
+    this.statusBarKey,
+    this.isLeft = true,
   });
 
+  @override
+  State<BrowserColumn> createState() => _BrowserColumnState();
+}
+
+class _BrowserColumnState extends State<BrowserColumn> {
+  // Track the URL currently being hovered
+  String? _hoveredUrl;
+  
+  // Handle hover over links in markdown content
+  void _handleLinkHover(String? url) {
+    setState(() {
+      _hoveredUrl = url;
+    });
+    
+    if (widget.onLinkHover != null) {
+      widget.onLinkHover!(url, widget.isLeft);
+    }
+  }
+  
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
         // Tab bar
         TabBarWidget(
-          columnModel: columnModel,
-          onNewTab: onNewTab,
-          onSelectTab: onSelectTab,
-          onCloseTab: onCloseTab,
-          onReopenTab: onReopenTab,
-          onReorderTab: onReorderTab,
-          onMoveToOtherColumn: onMoveToOtherColumn,
+          columnModel: widget.columnModel,
+          onNewTab: widget.onNewTab,
+          onSelectTab: widget.onSelectTab,
+          onCloseTab: widget.onCloseTab,
+          onReopenTab: widget.onReopenTab,
+          onReorderTab: widget.onReorderTab,
+          onMoveToOtherColumn: widget.onMoveToOtherColumn,
         ),
         
         // Content area
@@ -69,7 +102,7 @@ class BrowserColumn extends StatelessWidget {
                 ),
               ),
             ),
-            child: columnModel.activeTab == null
+            child: widget.columnModel.activeTab == null
                 ? Center(
                     child: Text(
                       'No tab selected',
@@ -78,14 +111,15 @@ class BrowserColumn extends StatelessWidget {
                       ),
                     ),
                   )
-                : columnModel.activeTab!.isLoading
+                : widget.columnModel.activeTab!.isLoading
                     ? const Center(child: CircularProgressIndicator())
                     : Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: SingleChildScrollView(
-                          child: GptMarkdown(
-                            columnModel.activeTab!.content,
-                            onLinkTab: onLinkTap,
+                          child: LinkDetector(
+                            markdown: widget.columnModel.activeTab!.content,
+                            onLinkTap: widget.onLinkTap,
+                            onHover: _handleLinkHover,
                           ),
                         ),
                       ),
@@ -93,28 +127,11 @@ class BrowserColumn extends StatelessWidget {
         ),
         
         // Status bar showing URL
-        Container(
-          height: 24,
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.surfaceVariant,
-            border: Border(
-              top: BorderSide(
-                color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-              ),
-            ),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 8.0),
-          alignment: Alignment.centerLeft,
-          child: columnModel.activeTab != null
-              ? Text(
-                  columnModel.activeTab!.url,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                )
-              : const SizedBox.shrink(),
+        StatusBarWidget(
+          key: widget.statusBarKey,
+          currentUrl: widget.columnModel.activeTab?.url ?? '',
+          hoveredUrl: _hoveredUrl,
+          isVisible: widget.columnModel.activeTab != null,
         ),
       ],
     );
