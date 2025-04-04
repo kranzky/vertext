@@ -49,6 +49,10 @@ class _BrowserScreenState extends State<BrowserScreen> {
   bool _isLeftLoading = true;
   bool _isRightLoading = false;
   
+  // Network status for feedback
+  String _networkStatus = 'Initializing...';
+  bool _showWelcomeWhileLoading = true;
+  
   // Current URL and title for each column
   String _leftUrl = _homeUrl;
   String _leftTitle = 'Home';
@@ -58,22 +62,47 @@ class _BrowserScreenState extends State<BrowserScreen> {
   @override
   void initState() {
     super.initState();
-    // Load the home page when the app starts
+    // Show welcome content immediately
+    _leftColumnContent = _getWelcomeText();
+    
+    // Then load the remote content in the background
     _loadInitialContent();
   }
   
   // Load the initial content (home page)
   Future<void> _loadInitialContent() async {
+    // Set a timeout to ensure we don't wait too long
+    bool timeoutOccurred = false;
+    Future.delayed(const Duration(seconds: 8), () {
+      if (_isLeftLoading) {
+        timeoutOccurred = true;
+        setState(() {
+          _networkStatus = 'Loading timed out. Using welcome screen.';
+          _isLeftLoading = false;
+        });
+      }
+    });
+    
     try {
-      final content = await _markdownService.fetchMarkdown(_homeUrl);
       setState(() {
-        _leftColumnContent = content;
-        _leftTitle = _markdownService.extractTitle(content, 'Home');
-        _isLeftLoading = false;
+        _networkStatus = 'Connecting to ${Uri.parse(_homeUrl).host}...';
       });
+      
+      final content = await _markdownService.fetchMarkdown(_homeUrl);
+      
+      // Only update if a timeout didn't occur
+      if (!timeoutOccurred) {
+        setState(() {
+          _leftColumnContent = content;
+          _leftTitle = _markdownService.extractTitle(content, 'Home');
+          _isLeftLoading = false;
+          _showWelcomeWhileLoading = false;
+          _networkStatus = 'Connected successfully!';
+        });
+      }
     } catch (e) {
       setState(() {
-        _leftColumnContent = _getWelcomeText();
+        _networkStatus = 'Connection failed: ${e.toString().split('\n').first}';
         _isLeftLoading = false;
       });
       print('Error loading initial content: $e');
@@ -112,19 +141,65 @@ The browser is lightweight and fast, with planned versions for:
   void _handleLinkTap(String url, String title) {
     print('Link tapped: $url, title: $title');
     
+    // Only process if URL is valid
+    if (url.isEmpty) {
+      return;
+    }
+    
     setState(() {
       _isRightLoading = true;
       _hasRightContent = true;
       _rightUrl = url;
-      _rightTitle = title;
+      _rightTitle = title.isNotEmpty ? title : 'Loading...';
+      
+      // Show a loading placeholder while waiting
+      _rightColumnContent = '# Loading $url\n\nPlease wait...';
+    });
+    
+    // Timeout for right column loading
+    bool timeoutOccurred = false;
+    Future.delayed(const Duration(seconds: 10), () {
+      if (_isRightLoading) {
+        timeoutOccurred = true;
+        setState(() {
+          _isRightLoading = false;
+          _rightColumnContent = '''# Request Timed Out
+          
+Unable to load content from $url within a reasonable time.
+
+Possible reasons:
+- The server might be slow or unresponsive
+- The content might be very large
+- There might be network connectivity issues
+
+You can try clicking the link again.
+''';
+        });
+      }
     });
     
     _fetchMarkdownContent(url).then((content) {
-      setState(() {
-        _rightColumnContent = content;
-        _rightTitle = _markdownService.extractTitle(content, title);
-        _isRightLoading = false;
-      });
+      if (!timeoutOccurred) {
+        setState(() {
+          _rightColumnContent = content;
+          _rightTitle = _markdownService.extractTitle(content, title);
+          _isRightLoading = false;
+        });
+      }
+    }).catchError((error) {
+      if (!timeoutOccurred) {
+        setState(() {
+          _isRightLoading = false;
+          _rightColumnContent = '''# Error Loading Content
+          
+An error occurred while loading content from $url.
+
+Error details: ${error.toString()}
+
+You can try clicking the link again or try a different link.
+''';
+        });
+      }
     });
   }
   
@@ -214,14 +289,55 @@ Error details: $e
                 ),
               ),
               padding: const EdgeInsets.all(16.0),
-              child: _isLeftLoading
-                ? const Center(child: CircularProgressIndicator())
-                : SingleChildScrollView(
-                    child: GptMarkdown(
-                      _leftColumnContent,
-                      onLinkTab: _handleLinkTap,
+              child: Column(
+                children: [
+                  // Network status indicator (only when loading)
+                  if (_isLeftLoading)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.blue.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: Row(
+                        children: [
+                          const SizedBox(
+                            width: 16,
+                            height: 16,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          Expanded(
+                            child: Text(
+                              _networkStatus,
+                              style: TextStyle(
+                                color: Colors.blue.shade700,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  
+                  // Small gap after status indicator
+                  if (_isLeftLoading)
+                    const SizedBox(height: 16),
+                  
+                  // Main content
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: GptMarkdown(
+                        _leftColumnContent,
+                        onLinkTab: _handleLinkTap,
+                      ),
                     ),
                   ),
+                ],
+              ),
             ),
           ),
           // Right column (50% width)
@@ -229,7 +345,70 @@ Error details: $e
             child: Container(
               padding: const EdgeInsets.all(16.0),
               child: _isRightLoading
-                ? const Center(child: CircularProgressIndicator())
+                ? Column(
+                    children: [
+                      // Loading indicator with status
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                        decoration: BoxDecoration(
+                          color: Colors.blue.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(4),
+                        ),
+                        child: Row(
+                          children: [
+                            const SizedBox(
+                              width: 16,
+                              height: 16,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Text(
+                                'Loading content from ${Uri.parse(_rightUrl).host}...',
+                                style: TextStyle(
+                                  color: Colors.blue.shade700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                      // Placeholder text
+                      Expanded(
+                        child: Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.downloading, size: 48, color: Colors.grey),
+                              const SizedBox(height: 16),
+                              Text(
+                                'Loading $_rightTitle...',
+                                style: const TextStyle(
+                                  fontSize: 16.0,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                _rightUrl,
+                                style: const TextStyle(
+                                  fontSize: 12.0,
+                                  fontStyle: FontStyle.italic,
+                                  color: Colors.grey,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  )
                 : _hasRightContent 
                   ? Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -241,13 +420,26 @@ Error details: $e
                             child: Row(
                               children: [
                                 Expanded(
-                                  child: Text(
-                                    _rightTitle,
-                                    style: const TextStyle(
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _rightTitle,
+                                        style: const TextStyle(
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.bold,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                      if (_rightUrl.isNotEmpty)
+                                        Text(
+                                          Uri.parse(_rightUrl).host,
+                                          style: const TextStyle(
+                                            fontSize: 12,
+                                            color: Colors.grey,
+                                          ),
+                                        ),
+                                    ],
                                   ),
                                 ),
                                 IconButton(
@@ -277,13 +469,28 @@ Error details: $e
                       ],
                     )
                   : const Center(
-                      child: Text(
-                        'Content from clicked links will appear here',
-                        style: TextStyle(
-                          fontSize: 16.0,
-                          fontStyle: FontStyle.italic,
-                          color: Colors.grey,
-                        ),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.arrow_back, size: 32, color: Colors.grey),
+                          SizedBox(height: 16),
+                          Text(
+                            'Content from clicked links will appear here',
+                            style: TextStyle(
+                              fontSize: 16.0,
+                              fontStyle: FontStyle.italic,
+                              color: Colors.grey,
+                            ),
+                          ),
+                          SizedBox(height: 8),
+                          Text(
+                            'Click on any link in the left column',
+                            style: TextStyle(
+                              fontSize: 14.0,
+                              color: Colors.grey,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
             ),
