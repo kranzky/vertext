@@ -74,11 +74,21 @@ class MarkdownService {
   /// Throws an exception if the fetch fails.
   Future<FetchResult> fetchContent(String url) async {
     try {
+      // Check if it's just a scheme with an anchor and nothing else
+      if (url.contains('://') && url.split('://')[1].startsWith('#')) {
+        throw FormatException('URL contains only a scheme and an anchor, no host');
+      }
+      
       // Ensure the URL has a valid scheme
       Uri uri = Uri.parse(url);
       if (!uri.hasScheme) {
         // If no scheme, assume https
         uri = Uri.parse('https://$url');
+      }
+      
+      // Additional check for empty host but with scheme
+      if (uri.host.isEmpty) {
+        throw FormatException('No host specified in URI $url');
       }
 
       print('Fetching content from: $uri');

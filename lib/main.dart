@@ -150,6 +150,27 @@ The browser is lightweight and fast, with planned versions for:
       return;
     }
     
+    // Handle anchor links (e.g., #installation-instructions)
+    if (url.startsWith('#')) {
+      // Currently we don't support scrolling to anchors, so we'll just
+      // show a message explaining this
+      setState(() {
+        _isRightLoading = false;
+        _hasRightContent = true;
+        _rightUrl = '';
+        _rightTitle = 'Anchor Link';
+        _rightColumnContent = '''# Anchor Link
+
+The link you clicked ($url) is an anchor link to a section within the current page.
+
+**Note:** Vertext currently doesn't support scrolling to specific sections within a document.
+
+In a future version, we plan to implement this feature.
+''';
+      });
+      return;
+    }
+    
     setState(() {
       _isRightLoading = true;
       _hasRightContent = true;
