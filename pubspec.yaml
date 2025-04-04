@@ -45,6 +45,7 @@ dependencies:
   # Unique ID generation
   uuid: ^4.4.0
   shared_preferences: ^2.5.3
+  window_manager: ^0.4.3
 
 dev_dependencies:
   flutter_test:

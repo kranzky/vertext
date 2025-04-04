@@ -1,20 +1,139 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:window_manager/window_manager.dart';
 import 'services/markdown_service.dart';
 import 'models/browser_state.dart';
 import 'models/tab_model.dart';
 import 'widgets/browser_column.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  
+  // Initialize window manager if on desktop platform
+  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    await windowManager.ensureInitialized();
+    
+    // Load window preferences
+    final prefs = await SharedPreferences.getInstance();
+    bool wasMaximized = prefs.getBool('window_maximized') ?? true;
+    double width = prefs.getDouble('window_width') ?? 1200;
+    double height = prefs.getDouble('window_height') ?? 800;
+    double? left = prefs.getDouble('window_left');
+    double? top = prefs.getDouble('window_top');
+    
+    // Configure window options
+    WindowOptions windowOptions = WindowOptions(
+      size: Size(width, height),
+      center: left == null || top == null, // Center if no position is saved
+      skipTaskbar: false,
+      titleBarStyle: TitleBarStyle.normal,
+    );
+    
+    // Apply window options first
+    await windowManager.waitUntilReadyToShow(windowOptions, () async {
+      if (left != null && top != null) {
+        await windowManager.setPosition(Offset(left, top));
+      }
+      await windowManager.show();
+      
+      // Maximize if it was maximized before
+      if (wasMaximized) {
+        await windowManager.maximize();
+      }
+    });
+  }
+  
   runApp(const VertextApp());
 }
 
-class VertextApp extends StatelessWidget {
+class VertextApp extends StatefulWidget {
   const VertextApp({super.key});
+
+  @override
+  State<VertextApp> createState() => _VertextAppState();
+}
+
+class _VertextAppState extends State<VertextApp> with WindowListener {
+  @override
+  void initState() {
+    super.initState();
+    // Add window listener to save window state on desktop platforms
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      windowManager.addListener(this);
+    }
+  }
+
+  @override
+  void dispose() {
+    // Remove window listener when app is disposed
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      windowManager.removeListener(this);
+    }
+    super.dispose();
+  }
+
+  // Save window state when window is being closed
+  @override
+  void onWindowClose() async {
+    await _saveWindowState();
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      await windowManager.destroy();
+    }
+  }
+
+  // Save window position, size, and state when moved or resized
+  @override
+  void onWindowMoved() async {
+    await _saveWindowState();
+  }
+
+  @override
+  void onWindowResized() async {
+    await _saveWindowState();
+  }
+
+  @override
+  void onWindowMaximize() async {
+    await _saveWindowState();
+  }
+
+  @override
+  void onWindowUnmaximize() async {
+    await _saveWindowState();
+  }
+
+  // Helper method to save window state
+  Future<void> _saveWindowState() async {
+    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+      try {
+        final prefs = await SharedPreferences.getInstance();
+        
+        // Save window maximized state
+        bool isMaximized = await windowManager.isMaximized();
+        await prefs.setBool('window_maximized', isMaximized);
+        
+        // Only save size and position if not maximized
+        if (!isMaximized) {
+          Size size = await windowManager.getSize();
+          await prefs.setDouble('window_width', size.width);
+          await prefs.setDouble('window_height', size.height);
+          
+          Offset position = await windowManager.getPosition();
+          await prefs.setDouble('window_left', position.dx);
+          await prefs.setDouble('window_top', position.dy);
+        }
+        
+        debugPrint('Window state saved: maximized=$isMaximized');
+      } catch (e) {
+        debugPrint('Error saving window state: $e');
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
