@@ -91,6 +91,31 @@ class BrowserColumn extends StatelessWidget {
                       ),
           ),
         ),
+        
+        // Status bar showing URL
+        Container(
+          height: 24,
+          decoration: BoxDecoration(
+            color: Theme.of(context).colorScheme.surfaceVariant,
+            border: Border(
+              top: BorderSide(
+                color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
+              ),
+            ),
+          ),
+          padding: const EdgeInsets.symmetric(horizontal: 8.0),
+          alignment: Alignment.centerLeft,
+          child: columnModel.activeTab != null
+              ? Text(
+                  columnModel.activeTab!.url,
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                )
+              : const SizedBox.shrink(),
+        ),
       ],
     );
   }
