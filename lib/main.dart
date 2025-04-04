@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'services/markdown_service.dart';
 import 'models/browser_state.dart';
 import 'models/tab_model.dart';
@@ -46,6 +47,9 @@ class _BrowserScreenState extends State<BrowserScreen> {
   
   // Loading state for initial load
   bool _isInitializing = true;
+  
+  // User preferences
+  bool _autoOpenNonMarkdownLinks = false;
   
   // UUID generator for tab IDs
   final Uuid _uuid = const Uuid();
@@ -113,15 +117,38 @@ class _BrowserScreenState extends State<BrowserScreen> {
       
       // Only update if a timeout didn't occur
       if (!timeoutOccurred) {
-        setState(() {
-          // Update the tab with the fetched content
-          tab.isLoading = false;
-          tab.content = result.content;
-          tab.title = _markdownService.extractTitle(result.content, 'Page');
-          tab.url = result.url; // Update to the resolved URL
+        // If content is not markdown, offer to open in system browser
+        if (!result.isMarkdown) {
+          await _showNonMarkdownDialog(result.url, result.contentType);
           
-          _isInitializing = false;
-        });
+          // Update tab with a message indicating external opening
+          setState(() {
+            tab.isLoading = false;
+            tab.content = '''# External Content
+
+This content was opened in your default browser because it's not markdown.
+
+**URL**: ${result.url}
+**Content Type**: ${result.contentType}
+
+_Click on another markdown link to load content in this pane._
+''';
+            tab.title = 'External Content';
+            tab.url = result.url; // Update to the resolved URL
+            
+            _isInitializing = false;
+          });
+        } else {
+          setState(() {
+            // Update the tab with the fetched markdown content
+            tab.isLoading = false;
+            tab.content = result.content;
+            tab.title = _markdownService.extractTitle(result.content, 'Page');
+            tab.url = result.url; // Update to the resolved URL
+            
+            _isInitializing = false;
+          });
+        }
       }
     } catch (e) {
       if (!timeoutOccurred) {
@@ -250,6 +277,135 @@ In a future version, we plan to implement this feature.
     
     // Load content for the new tab
     _loadTabContent(newTab, url, baseUrl);
+  }
+  
+  // Opens a URL in the system's default browser
+  Future<void> _openInSystemBrowser(String url) async {
+    try {
+      final Uri uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        throw 'Could not launch $url';
+      }
+    } catch (e) {
+      debugPrint('Error opening URL in system browser: $e');
+      
+      // Show an error dialog
+      if (mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Failed to Open URL'),
+              content: Text('Could not open $url in your browser.\n\nError: $e'),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('OK'),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ],
+            );
+          },
+        );
+      }
+    }
+  }
+  
+  // Show dialog to ask user about opening non-markdown content
+  Future<void> _showNonMarkdownDialog(String url, String contentType) async {
+    if (_autoOpenNonMarkdownLinks) {
+      // If auto-open is enabled, open immediately without asking
+      _openInSystemBrowser(url);
+      return;
+    }
+    
+    // Format content type for display
+    String formattedType = contentType.isEmpty 
+        ? 'non-markdown' 
+        : contentType.split(';').first.trim();
+    
+    // Determine content type name for friendly display
+    String contentTypeName = 'file';
+    if (contentType.contains('html')) {
+      contentTypeName = 'webpage';
+    } else if (contentType.contains('pdf')) {
+      contentTypeName = 'PDF document';
+    } else if (contentType.contains('image/')) {
+      contentTypeName = 'image';
+    } else if (contentType.contains('video/')) {
+      contentTypeName = 'video';
+    } else if (contentType.contains('audio/')) {
+      contentTypeName = 'audio file';
+    }
+    
+    if (mounted) {
+      final result = await showDialog<bool>(
+        context: context,
+        builder: (BuildContext context) {
+          return AlertDialog(
+            title: Text('Open $contentTypeName?'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('This link points to a $contentTypeName that cannot be displayed in Vertext.'),
+                const SizedBox(height: 12),
+                Text('Would you like to open it in your default browser?'),
+                const SizedBox(height: 8),
+                Text(
+                  url,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontStyle: FontStyle.italic,
+                    color: Colors.grey,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 16),
+                const Text(
+                  'Technical Details:',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+                ),
+                Text(
+                  'Content-Type: $formattedType',
+                  style: const TextStyle(fontSize: 12),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Checkbox(
+                      value: _autoOpenNonMarkdownLinks,
+                      onChanged: (bool? value) {
+                        setState(() {
+                          _autoOpenNonMarkdownLinks = value ?? false;
+                        });
+                      },
+                    ),
+                    const Text('Always open in browser (don\'t ask again)'),
+                  ],
+                ),
+              ],
+            ),
+            actions: <Widget>[
+              TextButton(
+                child: const Text('Cancel'),
+                onPressed: () => Navigator.of(context).pop(false),
+              ),
+              TextButton(
+                child: const Text('Open in Browser'),
+                onPressed: () => Navigator.of(context).pop(true),
+              ),
+            ],
+          );
+        },
+      );
+      
+      if (result == true) {
+        _openInSystemBrowser(url);
+      }
+    }
   }
 
   // Handle creating a new tab with URL prompt
