@@ -252,19 +252,62 @@ In a future version, we plan to implement this feature.
     _loadTabContent(newTab, url, baseUrl);
   }
 
-  // Handle creating a new tab in a column
+  // Handle creating a new tab with URL prompt
   void _handleNewTab(bool inLeftColumn) {
-    final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
-    final newTab = column.createTab(
-      url: _homeUrl,
-      title: 'Home',
+    _showUrlPromptDialog(context, inLeftColumn);
+  }
+  
+  // Show dialog to prompt for URL
+  Future<void> _showUrlPromptDialog(BuildContext context, bool inLeftColumn) async {
+    final textController = TextEditingController(text: 'https://');
+    
+    if (!mounted) return;
+    
+    final String? url = await showDialog<String>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Enter URL'),
+          content: TextField(
+            controller: textController,
+            decoration: const InputDecoration(
+              hintText: 'Enter a URL to load',
+              border: OutlineInputBorder(),
+            ),
+            autofocus: true,
+            keyboardType: TextInputType.url,
+            autocorrect: false,
+            onSubmitted: (value) {
+              Navigator.of(context).pop(value);
+            },
+          ),
+          actions: <Widget>[
+            TextButton(
+              child: const Text('Cancel'),
+              onPressed: () => Navigator.of(context).pop(),
+            ),
+            TextButton(
+              child: const Text('Load'),
+              onPressed: () => Navigator.of(context).pop(textController.text),
+            ),
+          ],
+        );
+      },
     );
     
-    setState(() {
-      column.activeTabIndex = column.tabs.length - 1;
-    });
-    
-    _loadTabContent(newTab, _homeUrl, null);
+    if (url != null && url.isNotEmpty) {
+      final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
+      final newTab = column.createTab(
+        url: url,
+        title: 'Loading...',
+      );
+      
+      setState(() {
+        column.activeTabIndex = column.tabs.length - 1;
+      });
+      
+      _loadTabContent(newTab, url, null);
+    }
   }
   
   // Handle selecting a tab
@@ -338,67 +381,6 @@ In a future version, we plan to implement this feature.
       }
     });
   }
-  
-  // Handle refreshing the current tab
-  void _handleRefresh(bool inLeftColumn) {
-    final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
-    
-    if (column.activeTab != null) {
-      final tab = column.activeTab!;
-      setState(() {
-        tab.isLoading = true;
-      });
-      
-      _loadTabContent(tab, tab.url, null);
-    }
-  }
-  
-  // Handle going back in tab history
-  void _handleBack(bool inLeftColumn) {
-    final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
-    
-    if (column.activeTab != null && column.activeTab!.canGoBack()) {
-      final tab = column.activeTab!;
-      final previousUrl = tab.goBack();
-      
-      setState(() {
-        tab.isLoading = true;
-      });
-      
-      _loadTabContent(tab, previousUrl, null);
-    }
-  }
-  
-  // Handle going forward in tab history
-  void _handleForward(bool inLeftColumn) {
-    final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
-    
-    if (column.activeTab != null && column.activeTab!.canGoForward()) {
-      final tab = column.activeTab!;
-      final nextUrl = tab.goForward();
-      
-      setState(() {
-        tab.isLoading = true;
-      });
-      
-      _loadTabContent(tab, nextUrl, null);
-    }
-  }
-  
-  // Handle going to the home page
-  void _handleHome(bool inLeftColumn) {
-    final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
-    
-    if (column.activeTab != null) {
-      final tab = column.activeTab!;
-      
-      setState(() {
-        tab.isLoading = true;
-      });
-      
-      _loadTabContent(tab, _homeUrl, null);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -448,10 +430,6 @@ In a future version, we plan to implement this feature.
                   _handleReorderTab(true, oldIndex, newIndex),
               onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(true, tab),
               onLinkTap: _handleLinkTap,
-              onRefresh: () => _handleRefresh(true),
-              onHome: () => _handleHome(true),
-              onBack: () => _handleBack(true),
-              onForward: () => _handleForward(true),
             ),
           ),
           
@@ -467,10 +445,6 @@ In a future version, we plan to implement this feature.
                   _handleReorderTab(false, oldIndex, newIndex),
               onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(false, tab),
               onLinkTap: _handleLinkTap,
-              onRefresh: () => _handleRefresh(false),
-              onHome: () => _handleHome(false),
-              onBack: () => _handleBack(false),
-              onForward: () => _handleForward(false),
             ),
           ),
         ],

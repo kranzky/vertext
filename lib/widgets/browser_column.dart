@@ -30,18 +30,6 @@ class BrowserColumn extends StatelessWidget {
   
   /// Callback when a link is clicked in the content
   final void Function(String url, String title) onLinkTap;
-  
-  /// Callback when the refresh button is clicked
-  final VoidCallback? onRefresh;
-  
-  /// Callback when the home button is clicked
-  final VoidCallback? onHome;
-  
-  /// Callback when the back button is clicked
-  final VoidCallback? onBack;
-  
-  /// Callback when the forward button is clicked
-  final VoidCallback? onForward;
 
   const BrowserColumn({
     super.key,
@@ -53,10 +41,6 @@ class BrowserColumn extends StatelessWidget {
     required this.onReorderTab,
     required this.onMoveToOtherColumn,
     required this.onLinkTap,
-    this.onRefresh,
-    this.onHome,
-    this.onBack,
-    this.onForward,
   });
 
   @override
@@ -73,78 +57,6 @@ class BrowserColumn extends StatelessWidget {
           onReorderTab: onReorderTab,
           onMoveToOtherColumn: onMoveToOtherColumn,
         ),
-        
-        // Navigation toolbar
-        if (columnModel.activeTab != null)
-          Container(
-            height: 36,
-            padding: const EdgeInsets.symmetric(horizontal: 8.0),
-            decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceVariant.withOpacity(0.6),
-              border: Border(
-                bottom: BorderSide(
-                  color: Theme.of(context).colorScheme.outline.withOpacity(0.2),
-                ),
-              ),
-            ),
-            child: Row(
-              children: [
-                // Back button
-                IconButton(
-                  icon: const Icon(Icons.arrow_back, size: 18),
-                  tooltip: 'Back',
-                  onPressed: columnModel.activeTab?.canGoBack() == true ? onBack : null,
-                  visualDensity: VisualDensity.compact,
-                ),
-                
-                // Forward button
-                IconButton(
-                  icon: const Icon(Icons.arrow_forward, size: 18),
-                  tooltip: 'Forward',
-                  onPressed: columnModel.activeTab?.canGoForward() == true ? onForward : null,
-                  visualDensity: VisualDensity.compact,
-                ),
-                
-                // Refresh button
-                IconButton(
-                  icon: const Icon(Icons.refresh, size: 18),
-                  tooltip: 'Refresh',
-                  onPressed: onRefresh,
-                  visualDensity: VisualDensity.compact,
-                ),
-                
-                // Home button
-                IconButton(
-                  icon: const Icon(Icons.home, size: 18),
-                  tooltip: 'Home',
-                  onPressed: onHome,
-                  visualDensity: VisualDensity.compact,
-                ),
-                
-                // URL display
-                Expanded(
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 4.0),
-                    decoration: BoxDecoration(
-                      color: Theme.of(context).colorScheme.surface,
-                      borderRadius: BorderRadius.circular(4.0),
-                      border: Border.all(
-                        color: Theme.of(context).colorScheme.outline.withOpacity(0.3),
-                      ),
-                    ),
-                    child: Text(
-                      columnModel.activeTab?.url ?? '',
-                      style: const TextStyle(
-                        fontSize: 12,
-                        fontFamily: 'monospace',
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
         
         // Content area
         Expanded(
