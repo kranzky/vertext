@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
-import 'dart:ui' as ui;
 
 /// A widget that wraps the GptMarkdown to detect when the user hovers over links
 class LinkDetector extends StatefulWidget {
@@ -27,79 +26,64 @@ class LinkDetector extends StatefulWidget {
 
 class _LinkDetectorState extends State<LinkDetector> {
   String? _hoveredLink;
-  Map<String, String> _linkMap = {};
   final FocusNode _focusNode = FocusNode();
-  
-  @override
-  void initState() {
-    super.initState();
-    _extractLinks();
-  }
-  
-  @override
-  void didUpdateWidget(LinkDetector oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.markdown != widget.markdown) {
-      _extractLinks();
-    }
-  }
   
   @override
   void dispose() {
     _focusNode.dispose();
     super.dispose();
   }
-  
-  /// Extract links from the markdown content
-  void _extractLinks() {
-    _linkMap = {};
-    
-    // Use a simple regex to extract markdown links
-    final RegExp regex = RegExp(r'\[([^\]]+)\]\(([^)]+)\)');
-    final matches = regex.allMatches(widget.markdown);
-    
-    for (final match in matches) {
-      if (match.groupCount >= 2) {
-        final linkText = match.group(1);
-        final linkUrl = match.group(2);
-        if (linkText != null && linkUrl != null) {
-          _linkMap[linkText] = linkUrl;
-        }
-      }
-    }
-    
-    // Only for debugging - show the extracted links
-    debugPrint('Extracted ${_linkMap.length} links:');
-    _linkMap.forEach((text, url) {
-      debugPrint('  "$text" -> $url');
-    });
-  }
-  
-  /// Show the URL in the status bar when hovered
-  void _showUrlInStatus(String? text) {
-    final url = text != null ? _linkMap[text] : null;
-    if (_hoveredLink != url) {
-      setState(() {
-        _hoveredLink = url;
-      });
-      widget.onHover(url);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
-    // The simplest approach - let the GptMarkdown handle the links
-    // and we'll figure out the hovering elsewhere
+    // We'll use GptMarkdown's linkBuilder feature to provide a custom link
+    // widget that can detect hover events and update the status bar
+    
     return Focus(
       focusNode: _focusNode,
       child: MouseRegion(
         cursor: SystemMouseCursors.basic,
         onExit: (_) {
-          _showUrlInStatus(null);
+          setState(() {
+            _hoveredLink = null;
+          });
+          widget.onHover(null);
         },
         child: GptMarkdown(
           widget.markdown,
           onLinkTab: widget.onLinkTap,
+          // Custom link builder that captures hover events
+          linkBuilder: (context, text, url, style) {
+            return MouseRegion(
+              cursor: SystemMouseCursors.click,
+              onEnter: (_) {
+                if (_hoveredLink != url) {
+                  setState(() {
+                    _hoveredLink = url;
+                  });
+                  widget.onHover(url);
+                }
+              },
+              onExit: (_) {
+                if (_hoveredLink == url) {
+                  setState(() {
+                    _hoveredLink = null;
+                  });
+                  widget.onHover(null);
+                }
+              },
+              child: GestureDetector(
+                onTap: () => widget.onLinkTap(url, text),
+                child: Text(
+                  text,
+                  style: style.copyWith(
+                    color: Colors.blue,
+                    decoration: TextDecoration.underline,
+                  ),
+                ),
+              ),
+            );
+          },
         ),
       ),
     );
