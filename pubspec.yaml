@@ -38,6 +38,9 @@ dependencies:
   # Markdown renderer
   gpt_markdown: ^1.0.16
   url_launcher: ^6.2.5
+  
+  # HTTP client for fetching markdown content
+  http: ^1.3.0
 
 dev_dependencies:
   flutter_test:
