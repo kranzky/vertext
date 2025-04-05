@@ -27,6 +27,28 @@ class LinkDetector extends StatefulWidget {
 class _LinkDetectorState extends State<LinkDetector> {
   String? _hoveredLink;
   
+  /// Checks if a URL likely points to a markdown document
+  bool isLikelyMarkdownLink(String url) {
+    final lowerUrl = url.toLowerCase();
+    // Check if it ends with .md or .markdown extension
+    if (lowerUrl.endsWith('.md') || lowerUrl.endsWith('.markdown')) {
+      return true;
+    }
+    
+    try {
+      // Check if domain contains 'mmm' subdomain
+      final uri = Uri.parse(url);
+      if (uri.host.startsWith('mmm.')) {
+        return true;
+      }
+    } catch (e) {
+      // If URL parsing fails, don't crash
+      debugPrint('Error parsing URL: $e');
+    }
+    
+    return false;
+  }
+  
   @override
   Widget build(BuildContext context) {
     return GptMarkdown(
@@ -59,8 +81,13 @@ class _LinkDetectorState extends State<LinkDetector> {
             child: Text(
               text,
               style: style.copyWith(
-                color: _hoveredLink == url ? Colors.blue.shade700 : Colors.blue.shade500,
+                // Use purple for markdown links, blue for external links
+                color: isLikelyMarkdownLink(url) 
+                  ? (_hoveredLink == url ? Colors.purple.shade700 : Colors.purple.shade500)
+                  : (_hoveredLink == url ? Colors.blue.shade700 : Colors.blue.shade500),
                 decoration: _hoveredLink == url ? TextDecoration.underline : TextDecoration.none,
+                // Make markdown links slightly more prominent
+                fontWeight: isLikelyMarkdownLink(url) ? FontWeight.w500 : null,
               ),
             ),
           ),
