@@ -67,6 +67,9 @@ class _BrowserColumnState extends State<BrowserColumn> {
   
   // Map to store individual scroll controllers for each tab
   final Map<String, ScrollController> _scrollControllers = {};
+  
+  // Map to store heading element positions for anchor links
+  final Map<String, Map<String, double>> _headingPositions = {};
 
   @override
   void dispose() {
@@ -101,6 +104,83 @@ class _BrowserColumnState extends State<BrowserColumn> {
     }
     
     return _scrollControllers[tab.id]!;
+  }
+  
+  // Extract headings and their positions from the markdown content
+  void _extractHeadingPositions(TabModel tab) {
+    if (!_headingPositions.containsKey(tab.id)) {
+      _headingPositions[tab.id] = {};
+    }
+    
+    // Use a regular expression to find all headings in the content
+    final headingRegex = RegExp(r'^(#{1,6})\s+(.+)$', multiLine: true);
+    final matches = headingRegex.allMatches(tab.content);
+    
+    // Store the heading positions
+    for (final match in matches) {
+      final headingText = match.group(2)!.trim();
+      final headingId = _generateAnchorId(headingText);
+      
+      // The position is based on the match index within the content
+      // This is approximate, but will be refined when scrolling
+      final position = tab.content.substring(0, match.start).split('\n').length * 20.0;
+      _headingPositions[tab.id]![headingId] = position;
+      
+      debugPrint('Found heading "$headingText" with ID #$headingId at approximately $position');
+    }
+  }
+  
+  // Convert a heading text to an anchor ID
+  String _generateAnchorId(String headingText) {
+    // Convert to lowercase
+    var id = headingText.toLowerCase();
+    // Replace spaces with dashes
+    id = id.replaceAll(RegExp(r'\s+'), '-');
+    // Remove special characters
+    id = id.replaceAll(RegExp(r'[^\w\-]'), '');
+    return id;
+  }
+  
+  // Handle anchor link navigation
+  void _scrollToAnchor(TabModel tab, String anchor) {
+    // Remove the # from the anchor
+    final anchorId = anchor.substring(1);
+    final controller = _getScrollController(tab);
+    
+    // Ensure we have extracted heading positions
+    if (!_headingPositions.containsKey(tab.id)) {
+      _extractHeadingPositions(tab);
+    }
+    
+    // Find the position for this anchor
+    final position = _headingPositions[tab.id]?[anchorId];
+    
+    if (position != null && controller.hasClients) {
+      // Animate scroll to the position
+      controller.animateTo(
+        position,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeInOut,
+      );
+      debugPrint('Scrolling to anchor #$anchorId at position $position');
+    } else {
+      debugPrint('Could not find anchor #$anchorId');
+    }
+  }
+  
+  // Handle link clicks including anchor links
+  void _handleLinkTap(String url, String title) {
+    // Check if this is an anchor link
+    if (url.startsWith('#')) {
+      final activeTab = widget.columnModel.activeTab;
+      if (activeTab != null) {
+        _scrollToAnchor(activeTab, url);
+      }
+      return;
+    }
+    
+    // Otherwise pass to the parent for normal link handling
+    widget.onLinkTap(url, title);
   }
 
   // Handle hover over links in markdown content
@@ -163,7 +243,7 @@ class _BrowserColumnState extends State<BrowserColumn> {
                             child: LinkDetector(
                               key: ValueKey(activeTab.id),
                               markdown: activeTab.content,
-                              onLinkTap: widget.onLinkTap,
+                              onLinkTap: _handleLinkTap, // Use our local handler first
                               onHover: _handleLinkHover,
                             ),
                           ),

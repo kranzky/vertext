@@ -420,22 +420,8 @@ Please check the URL and try again.
     }
     
     // Handle anchor links (e.g., #installation-instructions)
+    // Note: These are now handled directly in BrowserColumn._handleLinkTap
     if (url.startsWith('#')) {
-      // For now, show a toast message that anchor links are being detected
-      // but not yet implemented for navigation
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Anchor link detected: $url'),
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 2),
-          action: SnackBarAction(
-            label: 'OK',
-            onPressed: () {},
-          ),
-        ),
-      );
-      
-      // No need to create a new tab for now
       return;
     }
     

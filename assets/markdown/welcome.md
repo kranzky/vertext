@@ -18,7 +18,8 @@ Try clicking these links:
 
 - [Visit mmm.kranzky.com](https://mmm.kranzky.com) - An indie web community
 - [About Markdown](about:markdown) - Learn more about Markdown syntax
-- [Local Sample](file:///sample.md) - A sample local file
+- [Local Sample](sample.md) - A sample local file
+- [Anchor Links Demo](anchors_demo.md) - Try out anchor link navigation
 
 ## Keyboard Shortcuts
 
