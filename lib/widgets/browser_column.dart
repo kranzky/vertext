@@ -74,6 +74,28 @@ class _BrowserColumnState extends State<BrowserColumn> {
   // Set to store invalid anchor links that don't match any headings
   final Map<String, Set<String>> _invalidAnchors = {};
 
+  // Track the last active tab to detect changes
+  String? _lastActiveTabId;
+  
+  @override
+  void didUpdateWidget(BrowserColumn oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    
+    // Check if active tab has changed
+    final currentTabId = widget.columnModel.activeTab?.id;
+    if (currentTabId != null && currentTabId != _lastActiveTabId) {
+      // Tab has changed - restore the scroll position only now
+      _lastActiveTabId = currentTabId;
+      
+      // Schedule restoration only when explicitly switching tabs
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (widget.columnModel.activeTab != null) {
+          _ensureScrollPositionRestored(widget.columnModel.activeTab!);
+        }
+      });
+    }
+  }
+  
   @override
   void dispose() {
     // Dispose of all scroll controllers
@@ -95,15 +117,15 @@ class _BrowserColumnState extends State<BrowserColumn> {
       
       // Add listener to track scroll changes
       _scrollControllers[tab.id]!.addListener(() {
-        // Save position when scrolling
-        if (_scrollControllers[tab.id]!.hasClients) {
+        // Save position when scrolling, but only if not restoring programmatically
+        if (_scrollControllers[tab.id]!.hasClients && !_isRestoringScroll) {
           final position = _scrollControllers[tab.id]!.position.pixels;
           tab.scrollPosition = position;
           debugPrint('Saved position $position for tab ${tab.id}');
         }
       });
       
-      debugPrint('Created scroll controller for tab ${tab.id} with initial position ${tab.scrollPosition}');
+      debugPrint('Created scroll controller for tab ${tab.id}');
     }
     
     return _scrollControllers[tab.id]!;
@@ -292,6 +314,38 @@ class _BrowserColumnState extends State<BrowserColumn> {
     widget.onLinkTap(url, title);
   }
 
+  // Variable to track whether a programmatic scroll is in progress
+  bool _isRestoringScroll = false;
+  
+  // Make multiple attempts to restore the scroll position, but only for tab switches
+  void _ensureScrollPositionRestored(TabModel tab, {int attempts = 3}) {
+    if (attempts <= 0 || !_scrollControllers.containsKey(tab.id)) return;
+    
+    final controller = _scrollControllers[tab.id];
+    if (controller != null && controller.hasClients && tab.scrollPosition > 0) {
+      // Only jump if we're not already at the target position
+      if ((controller.position.pixels - tab.scrollPosition).abs() > 5) {
+        // Set flag to indicate programmatic scrolling
+        _isRestoringScroll = true;
+        
+        // Jump directly to the position
+        controller.jumpTo(tab.scrollPosition);
+        
+        debugPrint('Restored scroll position ${tab.scrollPosition} for tab ${tab.id} (attempt ${4-attempts})');
+        
+        // Reset flag after a short delay
+        Future.delayed(const Duration(milliseconds: 100), () {
+          _isRestoringScroll = false;
+        });
+      }
+    } else if (tab.scrollPosition > 0) {
+      // Retry after a short delay, but only if we have a position to restore
+      Future.delayed(const Duration(milliseconds: 50), () {
+        _ensureScrollPositionRestored(tab, attempts: attempts - 1);
+      });
+    }
+  }
+  
   // Handle hover over links in markdown content
   void _handleLinkHover(String? url) {
     setState(() {
@@ -307,6 +361,11 @@ class _BrowserColumnState extends State<BrowserColumn> {
   Widget build(BuildContext context) {
     // Determine current active tab
     final activeTab = widget.columnModel.activeTab;
+    
+    // Initialize lastActiveTabId if needed
+    if (_lastActiveTabId == null && activeTab != null) {
+      _lastActiveTabId = activeTab.id;
+    }
     
     return Column(
       children: [
@@ -345,18 +404,25 @@ class _BrowserColumnState extends State<BrowserColumn> {
                     ? const Center(child: CircularProgressIndicator())
                     : Padding(
                         padding: const EdgeInsets.all(16.0),
-                        child: SingleChildScrollView(
-                          key: ValueKey('scroll_${activeTab.id}'),
-                          controller: _getScrollController(activeTab),
-                          child: SelectionArea(
-                            child: LinkDetector(
-                              key: ValueKey(activeTab.id),
-                              markdown: activeTab.content,
-                              onLinkTap: _handleLinkTap, // Use our local handler first
-                              onHover: _handleLinkHover,
-                              isValidAnchorLink: isValidAnchorLink, // Validate anchor links
-                            ),
-                          ),
+                        child: Builder(
+                          builder: (context) {
+                            // Get the controller first, which will trigger setup
+                            final controller = _getScrollController(activeTab);
+                            
+                            return SingleChildScrollView(
+                              key: ValueKey('scroll_${activeTab.id}'),
+                              controller: controller,
+                              child: SelectionArea(
+                                child: LinkDetector(
+                                  key: ValueKey(activeTab.id),
+                                  markdown: activeTab.content,
+                                  onLinkTap: _handleLinkTap, // Use our local handler first
+                                  onHover: _handleLinkHover,
+                                  isValidAnchorLink: isValidAnchorLink, // Validate anchor links
+                                ),
+                              ),
+                            );
+                          }
                         ),
                       ),
           ),
