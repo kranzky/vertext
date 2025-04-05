@@ -2,6 +2,8 @@ import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io' if (dart.library.html) 'dart:html' hide File, Platform;
+// Only import JS on web platforms
+import 'stub_js.dart' if (dart.library.js) 'dart:js' as js;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
@@ -331,7 +333,31 @@ Error: ${e.toString()}
       
       // Check for full web URLs that include hostname
       if (url.startsWith('http://') || url.startsWith('https://')) {
-        final uri = Uri.parse(url);
+        var uri = Uri.parse(url);
+        
+        // Track if we're using a CORS proxy
+        bool corsUsingProxy = false;
+        String corsOriginalUrl = url;
+        
+        // For web platform, check if we need to use the CORS proxy
+        if (kIsWeb) {
+          // Use JavaScript interop to check if CORS proxy is needed
+          final js.JsObject? corsProxy = js.context.hasProperty('FLUTTER_CORS_PROXY') 
+              ? js.JsObject.fromBrowserObject(js.context['FLUTTER_CORS_PROXY']) 
+              : null;
+              
+          if (corsProxy != null) {
+            // Check if the URL needs a proxy (forced for mmm.kranzky.com)
+            final bool needsProxy = uri.host == 'mmm.kranzky.com' || 
+                corsProxy.callMethod('isCorsNeeded', [url]) as bool;
+                
+            if (needsProxy) {
+              final String proxyUrl = corsProxy.callMethod('getProxyUrl', [url]) as String;
+              uri = Uri.parse(proxyUrl);
+              corsUsingProxy = true;
+            }
+          }
+        }
         
         // Fetch content from web
         final response = await http.get(uri).timeout(
@@ -356,15 +382,76 @@ Error: ${e.toString()}
             content: response.body,
             isMarkdown: isMarkdown,
             contentType: contentType,
-            url: uri.toString(),
+            // When using a CORS proxy, return the original URL, not the proxy URL
+            url: corsUsingProxy ? corsOriginalUrl : uri.toString(),
           );
         } else {
+          // If using a CORS proxy and it failed, try another proxy
+          if (corsUsingProxy && kIsWeb) {
+            // Get another proxy - directly call getProxyUrl again, as it will cycle to next proxy
+            final js.JsObject? corsProxy = js.context.hasProperty('FLUTTER_CORS_PROXY') 
+                ? js.JsObject.fromBrowserObject(js.context['FLUTTER_CORS_PROXY']) 
+                : null;
+                
+            // Retry for both server errors (5xx) and client errors (4xx) like 403
+            // since different CORS proxies may have different restrictions
+            if (corsProxy != null && (response.statusCode >= 400)) {
+              // Try all available proxies
+              int retryCount = 0;
+              int maxRetries = 3; // Try up to 3 more proxies
+              
+              while (retryCount < maxRetries) {
+                try {
+                  retryCount++;
+                  
+                  // Try another proxy
+                  final String proxyUrl = corsProxy.callMethod('getProxyUrl', [corsOriginalUrl]) as String;
+                  final retryUri = Uri.parse(proxyUrl);
+                  
+                  // Try with this proxy
+                  final retryResponse = await http.get(retryUri).timeout(
+                    const Duration(seconds: 10),
+                    onTimeout: () {
+                      throw TimeoutException('Request timed out after 10 seconds');
+                    },
+                  );
+                  
+                  // If successful, return the results
+                  if (retryResponse.statusCode == 200) {
+                    String contentType = '';
+                    if (retryResponse.headers.containsKey('content-type')) {
+                      contentType = retryResponse.headers['content-type'] ?? '';
+                    }
+                    
+                    bool isMarkdown = isLikelyMarkdown(retryResponse.body, contentType, corsOriginalUrl);
+                    
+                    return FetchResult(
+                      content: retryResponse.body,
+                      isMarkdown: isMarkdown,
+                      contentType: contentType,
+                      url: corsOriginalUrl, // Use original URL, not proxy URL
+                    );
+                  }
+                  
+                  // Continue retrying only if we get an error response 
+                  // (both 4xx and 5xx errors might be proxy-specific)
+                  if (retryResponse.statusCode < 400) {
+                    // If successful, don't try other proxies
+                    break;
+                  }
+                } catch (e) {
+                  // Error with this proxy, continue to next one
+                }
+              }
+            }
+          }
+          
           return FetchResult(
             content: _getErrorMarkdown('Failed to load content', 
               'Server returned status code ${response.statusCode}'),
             isMarkdown: true,
             contentType: 'text/markdown',
-            url: uri.toString(),
+            url: corsUsingProxy ? corsOriginalUrl : uri.toString(),
           );
         }
       }
@@ -408,7 +495,29 @@ Error: ${e.toString()}
         if (baseUrl.startsWith('http')) {
           if (!url.contains('://') && !url.startsWith('http')) {
             try {
-              final baseUri = Uri.parse(baseUrl);
+              // If baseUrl contains a CORS proxy, extract the actual URL
+              var actualBaseUrl = baseUrl;
+              
+              // Check for common CORS proxy patterns
+              if (kIsWeb) {
+                // Detect allorigins proxy
+                if (baseUrl.contains('api.allorigins.win/raw?url=')) {
+                  actualBaseUrl = Uri.decodeComponent(baseUrl.split('api.allorigins.win/raw?url=')[1]);
+                }
+                // Detect alternative CORS proxies
+                else if (baseUrl.contains('cors.bridged.cc/')) {
+                  actualBaseUrl = baseUrl.split('cors.bridged.cc/')[1];
+                }
+                else if (baseUrl.contains('corsproxy.org/?')) {
+                  actualBaseUrl = Uri.decodeComponent(baseUrl.split('corsproxy.org/?')[1]);
+                }
+                // Detect corsproxy.io proxy
+                else if (baseUrl.contains('corsproxy.io/?')) {
+                  actualBaseUrl = Uri.decodeComponent(baseUrl.split('corsproxy.io/?')[1]);
+                }
+              }
+              
+              final baseUri = Uri.parse(actualBaseUrl);
               Uri resolvedUri;
               
               if (url.startsWith('/')) {
@@ -453,7 +562,36 @@ Error: ${e.toString()}
               }
               
               // After resolving the URL, fetch the content
-              final response = await http.get(resolvedUri).timeout(
+              var finalUri = resolvedUri;
+              
+              // Track if we're using a proxy
+              bool corsUsingProxy = false;
+              String corsOriginalUrl = resolvedUri.toString();
+              
+              // Store the original host for CORS check
+              final originalHost = resolvedUri.host;
+              
+              // For web platform, check if we need to use the CORS proxy
+              if (kIsWeb) {
+                final js.JsObject? corsProxy = js.context.hasProperty('FLUTTER_CORS_PROXY') 
+                    ? js.JsObject.fromBrowserObject(js.context['FLUTTER_CORS_PROXY']) 
+                    : null;
+                    
+                if (corsProxy != null) {
+                  // Check if this is the same host that needed CORS proxy in the base URL
+                  // This ensures we use the proxy when loading relative links from domains that need it
+                  final bool needsProxy = originalHost == 'mmm.kranzky.com' || 
+                      corsProxy.callMethod('isCorsNeeded', [resolvedUri.toString()]) as bool;
+                  
+                  if (needsProxy) {
+                    final String proxyUrl = corsProxy.callMethod('getProxyUrl', [resolvedUri.toString()]) as String;
+                    finalUri = Uri.parse(proxyUrl);
+                    corsUsingProxy = true;
+                  }
+                }
+              }
+              
+              final response = await http.get(finalUri).timeout(
                 const Duration(seconds: 10),
                 onTimeout: () {
                   throw TimeoutException('Request timed out after 10 seconds');
@@ -474,7 +612,8 @@ Error: ${e.toString()}
                   content: response.body,
                   isMarkdown: isMarkdown,
                   contentType: contentType,
-                  url: resolvedUri.toString(),
+                  // Use original URL for relative link resolution, not the proxy URL
+                  url: corsUsingProxy ? corsOriginalUrl : resolvedUri.toString(),
                 );
               } else {
                 return FetchResult(
@@ -482,7 +621,7 @@ Error: ${e.toString()}
                     'Server returned status code ${response.statusCode}'),
                   isMarkdown: true,
                   contentType: 'text/markdown',
-                  url: resolvedUri.toString(),
+                  url: corsUsingProxy ? corsOriginalUrl : resolvedUri.toString(),
                 );
               }
             } catch (e) {
@@ -540,7 +679,24 @@ Error: ${e.toString()}
             final resolvedUri = baseUri.replace(path: url);
             
             // Fetch the content from the web
-            final response = await http.get(resolvedUri).timeout(
+            var finalUri = resolvedUri;
+            
+            // For web platform, check if we need to use the CORS proxy
+            if (kIsWeb) {
+              final js.JsObject? corsProxy = js.context.hasProperty('FLUTTER_CORS_PROXY') 
+                  ? js.JsObject.fromBrowserObject(js.context['FLUTTER_CORS_PROXY']) 
+                  : null;
+                  
+              if (corsProxy != null) {
+                final bool needsProxy = corsProxy.callMethod('isCorsNeeded', [resolvedUri.toString()]) as bool;
+                if (needsProxy) {
+                  final String proxyUrl = corsProxy.callMethod('getProxyUrl', [resolvedUri.toString()]) as String;
+                  finalUri = Uri.parse(proxyUrl);
+                }
+              }
+            }
+            
+            final response = await http.get(finalUri).timeout(
               const Duration(seconds: 10),
               onTimeout: () {
                 throw TimeoutException('Request timed out after 10 seconds');
@@ -604,8 +760,24 @@ Error: ${e.toString()}
         }
         
         
+        // For web platform, check if we need to use the CORS proxy
+        var finalUri = uri;
+        if (kIsWeb) {
+          final js.JsObject? corsProxy = js.context.hasProperty('FLUTTER_CORS_PROXY') 
+              ? js.JsObject.fromBrowserObject(js.context['FLUTTER_CORS_PROXY']) 
+              : null;
+              
+          if (corsProxy != null) {
+            final bool needsProxy = corsProxy.callMethod('isCorsNeeded', [uri.toString()]) as bool;
+            if (needsProxy) {
+              final String proxyUrl = corsProxy.callMethod('getProxyUrl', [uri.toString()]) as String;
+              finalUri = Uri.parse(proxyUrl);
+            }
+          }
+        }
+        
         // Timeout after 10 seconds
-        final response = await http.get(uri).timeout(
+        final response = await http.get(finalUri).timeout(
           const Duration(seconds: 10),
           onTimeout: () {
             throw TimeoutException('Request timed out after 10 seconds');
@@ -659,6 +831,15 @@ Technical details: $e''');
       } else if (e.toString().contains('TimeoutException')) {
         errorContent = _getErrorMarkdown('Request Timed Out', 
           'The request to $url took too long to complete.\n\nTechnical details: $e');
+      } else if (kIsWeb && url.startsWith('http') && 
+          (e.toString().contains('CORS') || e.toString().contains('Cross-Origin'))) {
+        // Special handling for CORS errors on web
+        errorContent = _getErrorMarkdown('CORS Error', 
+          '''Unable to access $url due to browser security restrictions (CORS).
+          
+This is a limitation of web browsers that prevents accessing content from a different domain.
+          
+Technical details: $e''');
       } else {
         errorContent = _getErrorMarkdown('Error fetching content', e.toString());
       }
