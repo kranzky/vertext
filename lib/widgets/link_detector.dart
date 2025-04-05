@@ -26,53 +26,46 @@ class LinkDetector extends StatefulWidget {
 
 class _LinkDetectorState extends State<LinkDetector> {
   String? _hoveredLink;
-  final FocusNode _focusNode = FocusNode();
   
   @override
-  void dispose() {
-    _focusNode.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Focus(
-      focusNode: _focusNode,
-      child: GptMarkdown(
-        widget.markdown,
-        onLinkTab: widget.onLinkTap,
-        linkBuilder: (context, text, url, style) {
-          return MouseRegion(
-            cursor: SystemMouseCursors.click,
+    return GptMarkdown(
+      widget.markdown,
+      onLinkTab: widget.onLinkTap,
+      linkBuilder: (context, text, url, style) {
+        // Create a TextButton for links - this handles cursor changes correctly
+        return TextButton(
+          onPressed: () => widget.onLinkTap(url, text),
+          style: TextButton.styleFrom(
+            minimumSize: Size.zero,
+            padding: EdgeInsets.zero,
+            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            shape: const RoundedRectangleBorder(),
+          ),
+          child: MouseRegion(
+            cursor: SystemMouseCursors.click, // Explicitly set cursor to pointer
             onEnter: (_) {
-              if (_hoveredLink != url) {
-                setState(() {
-                  _hoveredLink = url;
-                });
-                widget.onHover(url);
-              }
+              setState(() {
+                _hoveredLink = url;
+              });
+              widget.onHover(url);
             },
             onExit: (_) {
-              if (_hoveredLink == url) {
-                setState(() {
-                  _hoveredLink = null;
-                });
-                widget.onHover(null);
-              }
+              setState(() {
+                _hoveredLink = null;
+              });
+              widget.onHover(null);
             },
-            child: GestureDetector(
-              onTap: () => widget.onLinkTap(url, text),
-              child: Text(
-                text,
-                style: style.copyWith(
-                  color: _hoveredLink == url ? Colors.blue.shade700 : Colors.blue.shade500,
-                  decoration: _hoveredLink == url ? TextDecoration.underline : TextDecoration.none,
-                ),
+            child: Text(
+              text,
+              style: style.copyWith(
+                color: _hoveredLink == url ? Colors.blue.shade700 : Colors.blue.shade500,
+                decoration: _hoveredLink == url ? TextDecoration.underline : TextDecoration.none,
               ),
             ),
-          );
-        },
-      ),
+          ),
+        );
+      },
     );
   }
 }

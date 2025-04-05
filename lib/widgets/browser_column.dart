@@ -115,6 +115,7 @@ class _BrowserColumnState extends State<BrowserColumn> {
                     ? const Center(child: CircularProgressIndicator())
                     : Padding(
                         padding: const EdgeInsets.all(16.0),
+                        // Plain approach: SelectionArea wrapping a GptMarkdown
                         child: SingleChildScrollView(
                           child: SelectionArea(
                             child: LinkDetector(
