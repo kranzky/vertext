@@ -1,7 +1,9 @@
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' if (dart.library.html) 'dart:html' hide Platform;
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -16,8 +18,10 @@ import 'widgets/status_bar_widget.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   
-  // Initialize window manager if on desktop platform
-  if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+  // Initialize window manager if on desktop platform (not web)
+  if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || 
+      defaultTargetPlatform == TargetPlatform.linux || 
+      defaultTargetPlatform == TargetPlatform.macOS)) {
     await windowManager.ensureInitialized();
     
     // Load window preferences
@@ -65,7 +69,9 @@ class _VertextAppState extends State<VertextApp> with WindowListener {
   void initState() {
     super.initState();
     // Add window listener to save window state on desktop platforms
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || 
+        defaultTargetPlatform == TargetPlatform.linux || 
+        defaultTargetPlatform == TargetPlatform.macOS)) {
       windowManager.addListener(this);
     }
   }
@@ -73,7 +79,9 @@ class _VertextAppState extends State<VertextApp> with WindowListener {
   @override
   void dispose() {
     // Remove window listener when app is disposed
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || 
+        defaultTargetPlatform == TargetPlatform.linux || 
+        defaultTargetPlatform == TargetPlatform.macOS)) {
       windowManager.removeListener(this);
     }
     super.dispose();
@@ -83,7 +91,9 @@ class _VertextAppState extends State<VertextApp> with WindowListener {
   @override
   void onWindowClose() async {
     await _saveWindowState();
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || 
+        defaultTargetPlatform == TargetPlatform.linux || 
+        defaultTargetPlatform == TargetPlatform.macOS)) {
       await windowManager.destroy();
     }
   }
@@ -111,7 +121,9 @@ class _VertextAppState extends State<VertextApp> with WindowListener {
 
   // Helper method to save window state
   Future<void> _saveWindowState() async {
-    if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) {
+    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || 
+        defaultTargetPlatform == TargetPlatform.linux || 
+        defaultTargetPlatform == TargetPlatform.macOS)) {
       try {
         final prefs = await SharedPreferences.getInstance();
         

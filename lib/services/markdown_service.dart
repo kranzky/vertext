@@ -1,11 +1,15 @@
 import 'package:http/http.dart' as http;
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
+import 'dart:io' if (dart.library.html) 'dart:html' hide File, Platform;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:path/path.dart' as path;
 import 'package:path_provider/path_provider.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+
+// Web file stub for conditional imports
+import 'stub_file.dart' if (dart.library.io) 'dart:io';
 
 /// Result from fetching content, containing the content and metadata
 class FetchResult {
@@ -148,15 +152,23 @@ class MarkdownService {
   Future<void> _initPaths() async {
     if (_appDocumentsPath == null) {
       try {
+        if (kIsWeb) {
+          // Web doesn't support file system paths in the same way
+          _appDocumentsPath = '.';
+          _appBundlePath = '.';
+          return;
+        }
+        
         final directory = await getApplicationDocumentsDirectory();
         _appDocumentsPath = directory.path;
         
         // Get the application's bundle path which contains the assets
         // This is different depending on platform
-        if (Platform.isIOS || Platform.isMacOS) {
+        if (defaultTargetPlatform == TargetPlatform.iOS || 
+            defaultTargetPlatform == TargetPlatform.macOS) {
           final directory = await getApplicationSupportDirectory();
           _appBundlePath = directory.path;
-        } else if (Platform.isAndroid) {
+        } else if (defaultTargetPlatform == TargetPlatform.android) {
           final directory = await getExternalStorageDirectory();
           _appBundlePath = directory?.path;
         } else {
@@ -174,6 +186,11 @@ class MarkdownService {
   
   /// Resolve a relative path to an absolute path
   Future<String> resolveRelativePath(String relativePath) async {
+    // For web platform, just return the relative path as-is
+    if (kIsWeb) {
+      return relativePath;
+    }
+    
     await _initPaths();
     
     // Try different base directories to find the file
@@ -190,18 +207,32 @@ class MarkdownService {
       path.join(Directory.current.path, relativePath),
     ];
     
-    for (final potentialPath in potentialPaths) {
-      if (await File(potentialPath).exists()) {
-        return potentialPath;
+    // On non-web platforms, check if files exist
+    if (!kIsWeb) {
+      for (final potentialPath in potentialPaths) {
+        if (await File(potentialPath).exists()) {
+          return potentialPath;
+        }
       }
     }
     
     // If file not found, return the first path as a default
-    return potentialPaths.first;
+    return potentialPaths.isNotEmpty ? potentialPaths.first : relativePath;
   }
   
   /// Load markdown from a local file
   Future<FetchResult> loadLocalFile(String filePath) async {
+    // Web platform cannot access local files through File API
+    if (kIsWeb) {
+      return FetchResult(
+        content: _getErrorMarkdown('File Access Not Supported', 
+          'Direct file access is not supported in web browsers due to security restrictions. Please use the file picker dialog instead.'),
+        isMarkdown: true,
+        contentType: 'text/markdown',
+        url: 'file://$filePath',
+      );
+    }
+    
     try {
       // Normalize the file path
       filePath = filePath.replaceFirst('file://', '');
@@ -241,9 +272,7 @@ class MarkdownService {
         );
       } on FileSystemException catch (e) {
         // Handle specific permission errors
-        if (e.osError?.errorCode == 1 || // Operation not permitted
-            e.osError?.errorCode == 13 || // Permission denied
-            e.toString().contains('Permission denied') ||
+        if (e.toString().contains('Permission denied') ||
             e.toString().contains('Operation not permitted')) {
           
           String errorMessage = '''## File Permission Error
@@ -258,7 +287,7 @@ Unable to read the file due to permission restrictions. On macOS, the applicatio
 
 ### Technical Details:
 Path: $filePath
-Error: ${e.message}
+Error: ${e.toString()}
 ''';
 
           return FetchResult(
