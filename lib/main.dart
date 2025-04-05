@@ -842,62 +842,6 @@ In a future version, we plan to implement this feature.
       // No app bar - to move tabs to the very top
       body: Column(
         children: [
-          // Menu bar for desktop platforms
-          if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
-            Row(
-              children: [
-                _buildPopupMenuButton('File', [
-                  PopupMenuItem(
-                    child: const Text('New Tab (Left)'),
-                    onTap: () => _handleNewTab(true),
-                  ),
-                  PopupMenuItem(
-                    child: const Text('New Tab (Right)'),
-                    onTap: () => _handleNewTab(false),
-                  ),
-                  const PopupMenuDivider(),
-                  PopupMenuItem(
-                    child: const Text('Open File in Left Column'),
-                    onTap: () => _openLocalFile(true),
-                  ),
-                  PopupMenuItem(
-                    child: const Text('Open File in Right Column'),
-                    onTap: () => _openLocalFile(false),
-                  ),
-                ]),
-                _buildPopupMenuButton('View', [
-                  PopupMenuItem(
-                    child: const Text('Home'),
-                    onTap: () {
-                      final leftTab = _browserState.leftColumn.createTab(
-                        url: _homeUrl,
-                        title: 'Home',
-                      );
-                      setState(() {
-                        _browserState.leftColumn.activeTabIndex = 
-                            _browserState.leftColumn.tabs.length - 1;
-                      });
-                      _loadTabContent(leftTab, _homeUrl, null);
-                    },
-                  ),
-                  PopupMenuItem(
-                    child: const Text('About Markdown'),
-                    onTap: () {
-                      final rightTab = _browserState.rightColumn.createTab(
-                        url: 'about:markdown',
-                        title: 'About Markdown',
-                      );
-                      setState(() {
-                        _browserState.rightColumn.activeTabIndex = 
-                            _browserState.rightColumn.tabs.length - 1;
-                      });
-                      _loadTabContent(rightTab, 'about:markdown', null);
-                    },
-                  ),
-                ]),
-              ],
-            ),
-          
           // Loading indicator (only visible when initializing)
           if (_isInitializing)
             LinearProgressIndicator(
@@ -952,18 +896,4 @@ In a future version, we plan to implement this feature.
     );
   }
   
-  // Helper to build popup menu buttons for the menu bar
-  Widget _buildPopupMenuButton(String label, List<PopupMenuEntry<dynamic>> items) {
-    return PopupMenuButton(
-      itemBuilder: (context) => items,
-      offset: const Offset(0, 40),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        child: Text(
-          label,
-          style: const TextStyle(color: Colors.blue),
-        ),
-      ),
-    );
-  }
 }
