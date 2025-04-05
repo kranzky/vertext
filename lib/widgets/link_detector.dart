@@ -81,10 +81,10 @@ class _LinkDetectorState extends State<LinkDetector> {
             child: Text(
               text,
               style: style.copyWith(
-                // Use purple for markdown links, blue for external links
+                // Use blue for markdown links, red for external links
                 color: isLikelyMarkdownLink(url) 
-                  ? (_hoveredLink == url ? Colors.purple.shade700 : Colors.purple.shade500)
-                  : (_hoveredLink == url ? Colors.blue.shade700 : Colors.blue.shade500),
+                  ? (_hoveredLink == url ? Colors.blue.shade700 : Colors.blue.shade500)
+                  : (_hoveredLink == url ? Colors.red.shade700 : Colors.red.shade500),
                 decoration: _hoveredLink == url ? TextDecoration.underline : TextDecoration.none,
                 // Make markdown links slightly more prominent
                 fontWeight: isLikelyMarkdownLink(url) ? FontWeight.w500 : null,
