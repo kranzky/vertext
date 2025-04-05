@@ -70,6 +70,9 @@ class _BrowserColumnState extends State<BrowserColumn> {
   
   // Map to store heading element positions for anchor links
   final Map<String, Map<String, double>> _headingPositions = {};
+  
+  // Set to store invalid anchor links that don't match any headings
+  final Map<String, Set<String>> _invalidAnchors = {};
 
   @override
   void dispose() {
@@ -142,7 +145,7 @@ class _BrowserColumnState extends State<BrowserColumn> {
   }
   
   // Handle anchor link navigation
-  void _scrollToAnchor(TabModel tab, String anchor) {
+  bool _scrollToAnchor(TabModel tab, String anchor) {
     // Remove the # from the anchor
     final anchorId = anchor.substring(1);
     final controller = _getScrollController(tab);
@@ -150,6 +153,11 @@ class _BrowserColumnState extends State<BrowserColumn> {
     // Ensure we have extracted heading positions
     if (!_headingPositions.containsKey(tab.id)) {
       _extractHeadingPositions(tab);
+    }
+    
+    // Initialize invalid anchors set if needed
+    if (!_invalidAnchors.containsKey(tab.id)) {
+      _invalidAnchors[tab.id] = {};
     }
     
     // Find the position for this anchor
@@ -163,9 +171,40 @@ class _BrowserColumnState extends State<BrowserColumn> {
         curve: Curves.easeInOut,
       );
       debugPrint('Scrolling to anchor #$anchorId at position $position');
+      
+      // This is a valid anchor
+      _invalidAnchors[tab.id]!.remove(anchor);
+      return true;
     } else {
+      // This is an invalid anchor that doesn't correspond to any heading
+      _invalidAnchors[tab.id]!.add(anchor);
       debugPrint('Could not find anchor #$anchorId');
+      return false;
     }
+  }
+  
+  // Check if an anchor link is valid (has a corresponding heading)
+  bool isValidAnchorLink(String anchor) {
+    final activeTab = widget.columnModel.activeTab;
+    if (activeTab == null) return false;
+    
+    // Initialize tracking structures if needed
+    if (!_headingPositions.containsKey(activeTab.id)) {
+      _extractHeadingPositions(activeTab);
+    }
+    
+    if (!_invalidAnchors.containsKey(activeTab.id)) {
+      _invalidAnchors[activeTab.id] = {};
+    }
+    
+    // If we've already identified this as invalid, return false
+    if (_invalidAnchors[activeTab.id]!.contains(anchor)) {
+      return false;
+    }
+    
+    // Check if the anchor exists in the heading positions map
+    final anchorId = anchor.substring(1);
+    return _headingPositions[activeTab.id]?.containsKey(anchorId) ?? false;
   }
   
   // Handle link clicks including anchor links
@@ -245,6 +284,7 @@ class _BrowserColumnState extends State<BrowserColumn> {
                               markdown: activeTab.content,
                               onLinkTap: _handleLinkTap, // Use our local handler first
                               onHover: _handleLinkHover,
+                              isValidAnchorLink: isValidAnchorLink, // Validate anchor links
                             ),
                           ),
                         ),

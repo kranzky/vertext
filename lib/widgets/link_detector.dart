@@ -24,12 +24,16 @@ class LinkDetector extends StatefulWidget {
   
   /// Callback when a link is hovered
   final void Function(String? url) onHover;
+  
+  /// Function to check if an anchor link is valid (if null, all anchor links are assumed valid)
+  final bool Function(String anchorLink)? isValidAnchorLink;
 
   const LinkDetector({
     super.key,
     required this.markdown,
     required this.onLinkTap,
     required this.onHover,
+    this.isValidAnchorLink,
   });
 
   @override
@@ -85,7 +89,15 @@ class _LinkDetectorState extends State<LinkDetector> {
         return isHovered ? Colors.red.shade700 : Colors.red.shade500;
         
       case LinkType.anchor:
-        // Light blue for anchor links
+        // For anchor links, first check if it's valid
+        if (widget.isValidAnchorLink != null) {
+          final isValid = widget.isValidAnchorLink!(url);
+          if (!isValid) {
+            // Grey for invalid anchor links
+            return isHovered ? Colors.grey.shade600 : Colors.grey.shade400;
+          }
+        }
+        // Light blue for valid anchor links
         return isHovered ? Colors.lightBlue.shade400 : Colors.lightBlue.shade300;
     }
   }

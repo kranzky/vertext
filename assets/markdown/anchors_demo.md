@@ -55,6 +55,10 @@ Here are some examples of anchor links:
 
 You can also create links to very specific sections. For example, link to the [Best Practices](#best-practices) section.
 
+Invalid links (shown in grey):
+- This section [does not exist](#non-existent-section)
+- [Another invalid link](#missing-heading) that has no target
+
 ## Conclusion
 
 Anchor links are a simple yet powerful way to improve navigation within long documents. They help readers find specific information quickly without scrolling through the entire document.
