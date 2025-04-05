@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:window_manager/window_manager.dart';
+import 'package:file_picker/file_picker.dart';
 import 'services/markdown_service.dart';
 import 'models/browser_state.dart';
 import 'models/tab_model.dart';
@@ -623,18 +624,40 @@ In a future version, we plan to implement this feature.
       builder: (BuildContext context) {
         return AlertDialog(
           title: const Text('Enter URL'),
-          content: TextField(
-            controller: textController,
-            decoration: const InputDecoration(
-              hintText: 'Enter a URL to load',
-              border: OutlineInputBorder(),
-            ),
-            autofocus: true,
-            keyboardType: TextInputType.url,
-            autocorrect: false,
-            onSubmitted: (value) {
-              Navigator.of(context).pop(value);
-            },
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: textController,
+                decoration: const InputDecoration(
+                  hintText: 'Enter a URL to load',
+                  border: OutlineInputBorder(),
+                ),
+                autofocus: true,
+                keyboardType: TextInputType.url,
+                autocorrect: false,
+                onSubmitted: (value) {
+                  Navigator.of(context).pop(value);
+                },
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Text('Or choose a local file:'),
+                  const Spacer(),
+                  ElevatedButton.icon(
+                    icon: const Icon(Icons.folder_open),
+                    label: const Text('Browse...'),
+                    onPressed: () async {
+                      final result = await _pickFile();
+                      if (result != null) {
+                        Navigator.of(context).pop(result);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
           ),
           actions: <Widget>[
             TextButton(
@@ -665,6 +688,29 @@ In a future version, we plan to implement this feature.
       
       // Save state after adding a new tab
       _saveBrowserState();
+    }
+  }
+  
+  // Pick a file using system dialog
+  Future<String?> _pickFile() async {
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['md', 'markdown', 'txt'],
+        allowMultiple: false,
+      );
+      
+      if (result != null && result.files.isNotEmpty) {
+        final file = result.files.first;
+        if (file.path != null) {
+          // Convert to file:// URL format
+          return 'file://${file.path}';
+        }
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error picking file: $e');
+      return null;
     }
   }
   
@@ -769,12 +815,89 @@ In a future version, we plan to implement this feature.
   }
 
 
+  // Open a local file in the specified column
+  void _openLocalFile(bool inLeftColumn) async {
+    final fileUrl = await _pickFile();
+    if (fileUrl != null) {
+      final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
+      final newTab = column.createTab(
+        url: fileUrl,
+        title: 'Loading...',
+      );
+      
+      setState(() {
+        column.activeTabIndex = column.tabs.length - 1;
+      });
+      
+      _loadTabContent(newTab, fileUrl, null);
+      
+      // Save state after adding a new tab
+      _saveBrowserState();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       // No app bar - to move tabs to the very top
       body: Column(
         children: [
+          // Menu bar for desktop platforms
+          if (Platform.isWindows || Platform.isLinux || Platform.isMacOS)
+            Row(
+              children: [
+                _buildPopupMenuButton('File', [
+                  PopupMenuItem(
+                    child: const Text('New Tab (Left)'),
+                    onTap: () => _handleNewTab(true),
+                  ),
+                  PopupMenuItem(
+                    child: const Text('New Tab (Right)'),
+                    onTap: () => _handleNewTab(false),
+                  ),
+                  const PopupMenuDivider(),
+                  PopupMenuItem(
+                    child: const Text('Open File in Left Column'),
+                    onTap: () => _openLocalFile(true),
+                  ),
+                  PopupMenuItem(
+                    child: const Text('Open File in Right Column'),
+                    onTap: () => _openLocalFile(false),
+                  ),
+                ]),
+                _buildPopupMenuButton('View', [
+                  PopupMenuItem(
+                    child: const Text('Home'),
+                    onTap: () {
+                      final leftTab = _browserState.leftColumn.createTab(
+                        url: _homeUrl,
+                        title: 'Home',
+                      );
+                      setState(() {
+                        _browserState.leftColumn.activeTabIndex = 
+                            _browserState.leftColumn.tabs.length - 1;
+                      });
+                      _loadTabContent(leftTab, _homeUrl, null);
+                    },
+                  ),
+                  PopupMenuItem(
+                    child: const Text('About Markdown'),
+                    onTap: () {
+                      final rightTab = _browserState.rightColumn.createTab(
+                        url: 'about:markdown',
+                        title: 'About Markdown',
+                      );
+                      setState(() {
+                        _browserState.rightColumn.activeTabIndex = 
+                            _browserState.rightColumn.tabs.length - 1;
+                      });
+                      _loadTabContent(rightTab, 'about:markdown', null);
+                    },
+                  ),
+                ]),
+              ],
+            ),
+          
           // Loading indicator (only visible when initializing)
           if (_isInitializing)
             LinearProgressIndicator(
@@ -825,6 +948,21 @@ In a future version, we plan to implement this feature.
             ),
           ),
         ],
+      ),
+    );
+  }
+  
+  // Helper to build popup menu buttons for the menu bar
+  Widget _buildPopupMenuButton(String label, List<PopupMenuEntry<dynamic>> items) {
+    return PopupMenuButton(
+      itemBuilder: (context) => items,
+      offset: const Offset(0, 40),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        child: Text(
+          label,
+          style: const TextStyle(color: Colors.blue),
+        ),
       ),
     );
   }

@@ -218,7 +218,18 @@ class MarkdownService {
       
       final file = File(filePath);
       
-      if (await file.exists()) {
+      // Check if file exists before attempting to read it
+      if (!await file.exists()) {
+        return FetchResult(
+          content: _getErrorMarkdown('File Not Found', 'The file does not exist: $filePath'),
+          isMarkdown: true,
+          contentType: 'text/markdown',
+          url: 'file://$filePath',
+        );
+      }
+
+      // Try to access the file
+      try {
         final content = await file.readAsString();
         
         // Determine content type based on extension
@@ -233,13 +244,44 @@ class MarkdownService {
           contentType: contentType,
           url: 'file://$filePath',
         );
-      } else {
-        return FetchResult(
-          content: _getErrorMarkdown('File Not Found', 'The file does not exist: $filePath'),
-          isMarkdown: true,
-          contentType: 'text/markdown',
-          url: 'file://$filePath',
-        );
+      } on FileSystemException catch (e) {
+        // Handle specific permission errors
+        if (e.osError?.errorCode == 1 || // Operation not permitted
+            e.osError?.errorCode == 13 || // Permission denied
+            e.toString().contains('Permission denied') ||
+            e.toString().contains('Operation not permitted')) {
+          
+          String errorMessage = '''## File Permission Error
+
+Unable to read the file due to permission restrictions. On macOS, the application needs explicit permission to access files outside of its container.
+
+### How to Fix This:
+
+1. Try using a system dialog to select the file instead of entering the path directly
+2. Save the file to your Documents folder, which is typically accessible
+3. Use the File > Open dialog in the system menu
+
+### Technical Details:
+Path: $filePath
+Error: ${e.message}
+''';
+
+          return FetchResult(
+            content: _getErrorMarkdown('Permission Denied', errorMessage),
+            isMarkdown: true,
+            contentType: 'text/markdown',
+            url: 'file://$filePath',
+          );
+        } else {
+          // Other file system errors
+          return FetchResult(
+            content: _getErrorMarkdown('File System Error', 
+              'Could not read file: $filePath\n\nError: $e'),
+            isMarkdown: true,
+            contentType: 'text/markdown',
+            url: 'file://$filePath',
+          );
+        }
       }
     } catch (e) {
       debugPrint('Error loading local file: $e');
