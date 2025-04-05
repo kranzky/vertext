@@ -765,76 +765,60 @@ In a future version, we plan to implement this feature.
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-          title: Row(
-            children: [
-              Text(widget.title),
-              if (_browserState.leftColumn.activeTab != null)
-                const SizedBox(width: 16),
-              if (_browserState.leftColumn.activeTab != null)
+      // No app bar - to move tabs to the very top
+      body: Column(
+        children: [
+          // Loading indicator (only visible when initializing)
+          if (_isInitializing)
+            LinearProgressIndicator(
+              backgroundColor: Colors.blue.shade100,
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade700),
+            ),
+          
+          // Main content area
+          Expanded(
+            child: Row(
+              children: [
+                // Left column (50% width)
                 Expanded(
-                  child: Text(
-                    '| ${_browserState.leftColumn.activeTab!.title}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.normal,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                  child: BrowserColumn(
+                    columnModel: _browserState.leftColumn,
+                    onNewTab: () => _handleNewTab(true),
+                    onSelectTab: (index) => _handleSelectTab(true, index),
+                    onCloseTab: (index) => _handleCloseTab(true, index),
+                    onReopenTab: () => _handleReopenTab(true),
+                    onReorderTab: (oldIndex, newIndex) => 
+                        _handleReorderTab(true, oldIndex, newIndex),
+                    onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(true, tab),
+                    onLinkTap: _handleLinkTap,
+                    onLinkHover: _handleLinkHover,
+                    statusBarKey: leftStatusBarKey,
+                    isLeft: true,
                   ),
                 ),
-            ],
-          ),
-          // Network status indicator
-          bottom: _isInitializing
-              ? PreferredSize(
-                  preferredSize: const Size.fromHeight(4.0),
-                  child: LinearProgressIndicator(
-                    backgroundColor: Colors.blue.shade100,
-                    valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade700),
+                
+                // Right column (50% width)
+                Expanded(
+                  child: BrowserColumn(
+                    columnModel: _browserState.rightColumn,
+                    onNewTab: () => _handleNewTab(false),
+                    onSelectTab: (index) => _handleSelectTab(false, index),
+                    onCloseTab: (index) => _handleCloseTab(false, index),
+                    onReopenTab: () => _handleReopenTab(false),
+                    onReorderTab: (oldIndex, newIndex) => 
+                        _handleReorderTab(false, oldIndex, newIndex),
+                    onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(false, tab),
+                    onLinkTap: _handleLinkTap,
+                    onLinkHover: _handleLinkHover,
+                    statusBarKey: rightStatusBarKey,
+                    isLeft: false,
                   ),
-                )
-              : null,
-        ),
-        body: Row(
-          children: [
-            // Left column (50% width)
-            Expanded(
-              child: BrowserColumn(
-                columnModel: _browserState.leftColumn,
-                onNewTab: () => _handleNewTab(true),
-                onSelectTab: (index) => _handleSelectTab(true, index),
-                onCloseTab: (index) => _handleCloseTab(true, index),
-                onReopenTab: () => _handleReopenTab(true),
-                onReorderTab: (oldIndex, newIndex) => 
-                    _handleReorderTab(true, oldIndex, newIndex),
-                onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(true, tab),
-                onLinkTap: _handleLinkTap,
-                onLinkHover: _handleLinkHover,
-                statusBarKey: leftStatusBarKey,
-                isLeft: true,
-              ),
+                ),
+              ],
             ),
-            
-            // Right column (50% width)
-            Expanded(
-              child: BrowserColumn(
-                columnModel: _browserState.rightColumn,
-                onNewTab: () => _handleNewTab(false),
-                onSelectTab: (index) => _handleSelectTab(false, index),
-                onCloseTab: (index) => _handleCloseTab(false, index),
-                onReopenTab: () => _handleReopenTab(false),
-                onReorderTab: (oldIndex, newIndex) => 
-                    _handleReorderTab(false, oldIndex, newIndex),
-                onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(false, tab),
-                onLinkTap: _handleLinkTap,
-                onLinkHover: _handleLinkHover,
-                statusBarKey: rightStatusBarKey,
-                isLeft: false,
-              ),
-            ),
-          ],
-        ),
+          ),
+        ],
+      ),
     );
   }
 }
