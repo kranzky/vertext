@@ -115,21 +115,91 @@ class _BrowserColumnState extends State<BrowserColumn> {
       _headingPositions[tab.id] = {};
     }
     
+    // Clear existing positions to avoid duplicates
+    _headingPositions[tab.id]!.clear();
+    
     // Use a regular expression to find all headings in the content
-    final headingRegex = RegExp(r'^(#{1,6})\s+(.+)$', multiLine: true);
+    final headingRegex = RegExp(r'^(#{1,6})\s+(.+?)(?:\s+\{#([a-zA-Z0-9_-]+)\})?$', multiLine: true);
     final matches = headingRegex.allMatches(tab.content);
     
     // Store the heading positions
     for (final match in matches) {
       final headingText = match.group(2)!.trim();
-      final headingId = _generateAnchorId(headingText);
       
-      // The position is based on the match index within the content
-      // This is approximate, but will be refined when scrolling
+      // Check if the heading has an explicit ID like {#custom-id}
+      String? explicitId = match.group(3);
+      
+      // Generate standard ID from heading text
+      final standardId = _generateAnchorId(headingText);
+      
+      // Generate short ID by taking the first word only
+      final shortId = headingText.split(' ').first.toLowerCase();
+      
+      // Calculate position
       final position = tab.content.substring(0, match.start).split('\n').length * 20.0;
-      _headingPositions[tab.id]![headingId] = position;
       
-      debugPrint('Found heading "$headingText" with ID #$headingId at approximately $position');
+      // Store with standard generated ID
+      _headingPositions[tab.id]![standardId] = position;
+      debugPrint('Added standard heading ID #$standardId for "$headingText"');
+      
+      // If there's an explicit ID, add that too
+      if (explicitId != null) {
+        _headingPositions[tab.id]![explicitId] = position;
+        debugPrint('Added explicit heading ID #$explicitId for "$headingText"');
+      }
+      
+      // Add short one-word ID
+      _headingPositions[tab.id]![shortId] = position;
+      debugPrint('Added short heading ID #$shortId for "$headingText"');
+      
+      // Also try adding ID without plural (for cases like "Headers" -> "header")
+      if (shortId.endsWith('s')) {
+        final singularId = shortId.substring(0, shortId.length - 1);
+        _headingPositions[tab.id]![singularId] = position;
+        debugPrint('Added singular heading ID #$singularId for "$headingText"');
+      }
+    }
+    
+    // Add support for special case mappings in the document you provided
+    _addSpecialCaseMappings(tab.id);
+  }
+  
+  // Add special case mappings for common markdown documentation
+  void _addSpecialCaseMappings(String tabId) {
+    // Map of special case IDs to their likely heading text
+    final specialCases = {
+      'p': 'paragraphs',
+      'html': 'inline html',
+      'autoescape': 'automatic escaping',
+      'blockquote': 'blockquotes',
+      'list': 'lists',
+      'precode': 'code blocks',
+      'hr': 'horizontal rules',
+      'link': 'links',
+      'em': 'emphasis',
+      'img': 'images',
+      'backslash': 'backslash escapes',
+      'autolink': 'automatic links',
+    };
+    
+    // For each special case, try to find a matching heading position
+    for (final entry in specialCases.entries) {
+      final specialId = entry.key;
+      final possibleHeadings = [
+        entry.value,
+        entry.value.replaceAll(' ', '-'),
+        entry.value.split(' ').first,
+      ];
+      
+      // Try to find a match
+      for (final possibleHeading in possibleHeadings) {
+        if (_headingPositions[tabId]!.containsKey(possibleHeading)) {
+          final position = _headingPositions[tabId]![possibleHeading]!;
+          _headingPositions[tabId]![specialId] = position;
+          debugPrint('Added special case mapping #$specialId -> #$possibleHeading');
+          break;
+        }
+      }
     }
   }
   

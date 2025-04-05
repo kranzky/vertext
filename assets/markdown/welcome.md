@@ -20,6 +20,7 @@ Try clicking these links:
 - [About Markdown](about:markdown) - Learn more about Markdown syntax
 - [Local Sample](sample.md) - A sample local file
 - [Anchor Links Demo](anchors_demo.md) - Try out anchor link navigation
+- [Custom Anchor IDs](custom_anchors.md) - Test custom short-form anchor IDs
 
 ## Keyboard Shortcuts
 
