@@ -300,14 +300,58 @@ Error: ${e.message}
   /// Throws an exception if the fetch fails.
   Future<FetchResult> fetchContent(String url, [String? baseUrl]) async {
     try {
+      debugPrint('---------- FETCH CONTENT START ----------');
+      debugPrint('Fetching content from URL: $url with baseUrl: $baseUrl');
+      
       // First check for special protocols
       if (isSpecialProtocol(url)) {
         return handleSpecialProtocol(url);
       }
       
+      // Check for full web URLs that include hostname
+      if (url.startsWith('http://') || url.startsWith('https://')) {
+        debugPrint('Processing as full web URL: $url');
+        final uri = Uri.parse(url);
+        
+        // Fetch content from web
+        final response = await http.get(uri).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            throw TimeoutException('Request timed out after 10 seconds');
+          },
+        );
+        
+        if (response.statusCode == 200) {
+          debugPrint('Successfully fetched web content from $uri');
+          
+          // Extract content type from headers
+          String contentType = '';
+          if (response.headers.containsKey('content-type')) {
+            contentType = response.headers['content-type'] ?? '';
+          }
+          
+          // Determine if the content is likely markdown
+          bool isMarkdown = isLikelyMarkdown(response.body, contentType, url);
+          
+          return FetchResult(
+            content: response.body,
+            isMarkdown: isMarkdown,
+            contentType: contentType,
+            url: uri.toString(),
+          );
+        } else {
+          return FetchResult(
+            content: _getErrorMarkdown('Failed to load content', 
+              'Server returned status code ${response.statusCode}'),
+            isMarkdown: true,
+            contentType: 'text/markdown',
+            url: uri.toString(),
+          );
+        }
+      }
+      
       // Check for local file paths
-      if (url.startsWith('file://') || 
-          (!url.contains('://') && !url.startsWith('http') && url.contains('.'))) {
+      if (url.startsWith('file://')) {
         return loadLocalFile(url);
       }
       
@@ -317,10 +361,235 @@ Error: ${e.message}
         return loadAssetMarkdown(assetPath);
       }
       
-      // Handle URLs that are just filenames with no protocol or path - assume they're local assets
-      if (!url.contains('/') && !url.contains('://') && 
+      // Handle relative paths based on baseUrl context
+      if (baseUrl != null) {
+        // 1. Handle asset-relative paths
+        if (baseUrl.startsWith('asset://')) {
+          if (!url.contains('://') && !url.startsWith('http')) {
+            // Handle as relative to current asset
+            final assetPath = baseUrl.replaceFirst('asset://', '');
+            final dirName = path.dirname(assetPath);
+            final joinedPath = path.join(dirName, url);
+            debugPrint('Resolving asset-relative path: $url based on $assetPath -> $joinedPath');
+            return loadAssetMarkdown(joinedPath);
+          }
+        }
+        
+        // 2. Handle file-relative paths
+        if (baseUrl.startsWith('file://')) {
+          if (!url.contains('://') && !url.startsWith('http')) {
+            // Handle as relative to current file
+            final basePath = baseUrl.replaceFirst('file://', '');
+            final dirName = path.dirname(basePath);
+            final joinedPath = path.join(dirName, url);
+            debugPrint('Resolving file-relative path: $url based on $basePath -> $joinedPath');
+            return loadLocalFile(joinedPath);
+          }
+        }
+        
+        // 3. Handle web-relative paths for http/https
+        if (baseUrl.startsWith('http')) {
+          if (!url.contains('://') && !url.startsWith('http')) {
+            try {
+              final baseUri = Uri.parse(baseUrl);
+              Uri resolvedUri;
+              
+              // Log the original URL and base for debugging
+              debugPrint('Resolving web relative URL: $url with base: $baseUrl');
+              
+              if (url.startsWith('/')) {
+                // Absolute path relative to domain root
+                resolvedUri = baseUri.replace(path: url);
+                debugPrint('Absolute path to domain: $resolvedUri');
+              } else {
+                // Check if the base URL ends with a filename pattern
+                final baseFilename = baseUri.path.split('/').last;
+                final hasFileExtension = baseFilename.contains('.') && 
+                    !baseFilename.endsWith('/');
+                
+                if (hasFileExtension) {
+                  // Base URL appears to be a file, use its directory as base
+                  final baseDir = path.dirname(baseUri.path);
+                  final normBaseDir = baseDir == '.' ? '' : baseDir;
+                  final prefix = normBaseDir.endsWith('/') ? normBaseDir : '$normBaseDir/';
+                  final suffix = url.startsWith('./') ? url.substring(2) : url;
+                  
+                  // Join paths properly
+                  String joinedPath = '$prefix$suffix';
+                  // Clean up any double slashes
+                  joinedPath = joinedPath.replaceAll('//', '/');
+                  // Ensure path starts with slash if not empty
+                  if (joinedPath.isNotEmpty && !joinedPath.startsWith('/')) {
+                    joinedPath = '/$joinedPath';
+                  }
+                  
+                  resolvedUri = baseUri.replace(path: joinedPath);
+                  debugPrint('File-relative path resolution: $resolvedUri');
+                } else {
+                  // Base URL is likely a directory, try to resolve directly
+                  String basePath = baseUri.path;
+                  if (!basePath.endsWith('/') && basePath.isNotEmpty) {
+                    basePath = '$basePath/';
+                  }
+                  
+                  final suffix = url.startsWith('./') ? url.substring(2) : url;
+                  String joinedPath = '$basePath$suffix';
+                  joinedPath = joinedPath.replaceAll('//', '/');
+                  
+                  resolvedUri = baseUri.replace(path: joinedPath);
+                  debugPrint('Directory-relative path resolution: $resolvedUri');
+                }
+              }
+              
+              debugPrint('Resolved web-relative URL: $url based on $baseUrl -> $resolvedUri');
+              
+              // After resolving the URL, fetch the content
+              final response = await http.get(resolvedUri).timeout(
+                const Duration(seconds: 10),
+                onTimeout: () {
+                  throw TimeoutException('Request timed out after 10 seconds');
+                },
+              );
+              
+              if (response.statusCode == 200) {
+                debugPrint('Successfully fetched content from $resolvedUri');
+                
+                // Extract content type from headers
+                String contentType = '';
+                if (response.headers.containsKey('content-type')) {
+                  contentType = response.headers['content-type'] ?? '';
+                }
+                
+                // Determine if the content is likely markdown
+                bool isMarkdown = isLikelyMarkdown(response.body, contentType, url);
+                
+                return FetchResult(
+                  content: response.body,
+                  isMarkdown: isMarkdown,
+                  contentType: contentType,
+                  url: resolvedUri.toString(),
+                );
+              } else {
+                return FetchResult(
+                  content: _getErrorMarkdown('Failed to load content', 
+                    'Server returned status code ${response.statusCode}'),
+                  isMarkdown: true,
+                  contentType: 'text/markdown',
+                  url: resolvedUri.toString(),
+                );
+              }
+            } catch (e) {
+              debugPrint('Error resolving web-relative URL: $e');
+              
+              // Fall back to simpler URL joining strategy on error
+              try {
+                final baseUri = Uri.parse(baseUrl);
+                final host = baseUri.host;
+                final scheme = baseUri.scheme;
+                
+                // Try to determine if base URL refers to a file or directory
+                final String basePath = baseUri.path;
+                String resolvedUrl;
+                
+                // Inspect the path to see if it ends with what looks like a file
+                final segments = basePath.split('/');
+                final lastSegment = segments.isNotEmpty ? segments.last : '';
+                final isFile = lastSegment.contains('.') && !lastSegment.isEmpty;
+                
+                if (isFile) {
+                  // If base URL looks like a file, resolve to its directory
+                  final int lastSlash = basePath.lastIndexOf('/');
+                  final String directory = lastSlash > 0 ? basePath.substring(0, lastSlash + 1) : '/';
+                  resolvedUrl = '$scheme://$host$directory$url';
+                  debugPrint('Fallback using directory of file: $resolvedUrl');
+                } else {
+                  // If base URL looks like a directory
+                  final String directory = basePath.endsWith('/') ? basePath : '$basePath/';
+                  resolvedUrl = '$scheme://$host$directory$url';
+                  debugPrint('Fallback using directory: $resolvedUrl');
+                }
+                
+                // As a last resort, try relative to root
+                if (resolvedUrl.contains('//') && !resolvedUrl.contains('://')) {
+                  resolvedUrl = '$scheme://$host/$url';
+                  debugPrint('Last resort fallback to root: $resolvedUrl');
+                }
+                
+                // Start a new fetch with the resolved URL but no base URL to avoid loops
+                return fetchContent(resolvedUrl);
+              } catch (fallbackError) {
+                debugPrint('Error in fallback URL resolution: $fallbackError');
+                throw e; // Throw original error if fallback fails
+              }
+            }
+          }
+        }
+      }
+      
+      // Handle simple markdown filenames without directory context  
+      if (!url.contains('/') && !url.contains('://') && !url.startsWith('http') &&
           (url.endsWith('.md') || url.endsWith('.markdown'))) {
-        return loadAssetMarkdown(url);
+        
+        debugPrint('===== SIMPLE MARKDOWN FILENAME DETECTED: $url =====');
+        debugPrint('URL: $url');
+        debugPrint('BaseURL: $baseUrl');
+        
+        // Check if we have an http baseUrl - if so, treat as web relative path
+        if (baseUrl != null && baseUrl.startsWith('http')) {
+          debugPrint('Treating simple markdown filename as web relative path: $url with base: $baseUrl');
+          
+          try {
+            final baseUri = Uri.parse(baseUrl);
+            // Construct URL relative to the host root
+            final resolvedUri = baseUri.replace(path: url);
+            debugPrint('Resolved to web URL: $resolvedUri');
+            
+            // Fetch the content from the web
+            final response = await http.get(resolvedUri).timeout(
+              const Duration(seconds: 10),
+              onTimeout: () {
+                throw TimeoutException('Request timed out after 10 seconds');
+              },
+            );
+            
+            if (response.statusCode == 200) {
+              debugPrint('Successfully fetched web content from $resolvedUri');
+              String contentType = response.headers['content-type'] ?? '';
+              return FetchResult(
+                content: response.body,
+                isMarkdown: isLikelyMarkdown(response.body, contentType, url),
+                contentType: contentType,
+                url: resolvedUri.toString(),
+              );
+            } else {
+              debugPrint('Failed to fetch from resolved URL: $resolvedUri, status: ${response.statusCode}');
+              return FetchResult(
+                content: _getErrorMarkdown('Failed to load content', 
+                  'Server returned status code ${response.statusCode}'),
+                isMarkdown: true,
+                contentType: 'text/markdown',
+                url: resolvedUri.toString(),
+              );
+            }
+          } catch (e) {
+            debugPrint('Error loading web markdown: $e');
+            // Fall back to trying as an asset
+          }
+        }
+        
+        // No http base context or web loading failed, assume it's a root-level asset
+        debugPrint('Treating simple markdown filename as asset: $url');
+        try {
+          return loadAssetMarkdown(url);
+        } catch (assetError) {
+          debugPrint('Error loading as asset: $assetError');
+          throw assetError; // Re-throw to be caught by outer try-catch
+        }
+      }
+      // Check for non-URL file paths with extensions that might be local files
+      if (!url.contains('://') && !url.startsWith('http') && url.contains('.')) {
+        debugPrint('Treating as potential local file: $url');
+        return loadLocalFile(url);
       }
       
       // Check if it's just a scheme with an anchor and nothing else
@@ -328,97 +597,68 @@ Error: ${e.message}
         throw FormatException('URL contains only a scheme and an anchor, no host');
       }
       
-      // Handle relative URLs
-      Uri? uri;
+      // At this point, we're dealing with a full URL or something we'll treat as one
+      Uri uri;
       
-      // Handle different URL types
       try {
+        // Handle absolute URLs directly
         if (url.contains('://')) {
-          // Already an absolute URL
           uri = Uri.parse(url);
-        } else if (url.startsWith('/')) {
-          // Absolute path but relative to domain
-          if (baseUrl != null) {
-            final baseUri = Uri.parse(baseUrl);
-            uri = baseUri.replace(path: url);
-          } else {
-            throw FormatException('Cannot resolve absolute path without a base URL');
-          }
-        } else if (baseUrl != null) {
-          // Relative path with a base URL
-          final baseUri = Uri.parse(baseUrl);
-          
-          // If baseUrl is a file URL, join the paths
-          if (baseUrl.startsWith('file://')) {
-            final basePath = baseUrl.replaceFirst('file://', '');
-            final dirName = path.dirname(basePath);
-            final joinedPath = path.join(dirName, url);
-            return loadLocalFile(joinedPath);
-          }
-          
-          // For now, assume mmm.kranzky.com since that's our specific domain
-          // In a more general solution, we'd extract this from the baseUrl
-          uri = Uri(
-            scheme: 'https',
-            host: 'mmm.kranzky.com',
-            path: url
-          );
-          
-          debugPrint('Resolved relative URL: $url to $uri');
         } else {
-          // No base URL provided, treat as absolute
-          uri = Uri.parse(url);
-          if (!uri.hasScheme) {
+          // No scheme - add https:// if needed
+          if (url.startsWith('www.') || url.contains('.')) {
             uri = Uri.parse('https://$url');
+          } else {
+            throw FormatException('Cannot determine URL format for: $url');
           }
+        }
+        
+        // Check for valid host
+        if (uri.host.isEmpty) {
+          throw FormatException('No host specified in URI $url');
+        }
+        
+        debugPrint('Fetching content from absolute URL: $uri');
+        
+        // Timeout after 10 seconds
+        final response = await http.get(uri).timeout(
+          const Duration(seconds: 10),
+          onTimeout: () {
+            throw TimeoutException('Request timed out after 10 seconds');
+          },
+        );
+        
+        if (response.statusCode == 200) {
+          debugPrint('Successfully fetched content from $uri');
+          
+          // Extract content type from headers
+          String contentType = '';
+          if (response.headers.containsKey('content-type')) {
+            contentType = response.headers['content-type'] ?? '';
+          }
+          
+          // Determine if the content is likely markdown
+          bool isMarkdown = isLikelyMarkdown(response.body, contentType, url);
+          
+          return FetchResult(
+            content: response.body,
+            isMarkdown: isMarkdown,
+            contentType: contentType,
+            url: uri.toString(),
+          );
+        } else {
+          debugPrint('Failed to fetch content: Status code ${response.statusCode}');
+          return FetchResult(
+            content: _getErrorMarkdown('Failed to load content', 
+              'Server returned status code ${response.statusCode}'),
+            isMarkdown: true, // Errors are displayed as markdown
+            contentType: 'text/markdown',
+            url: uri.toString(),
+          );
         }
       } catch (e) {
-        debugPrint('Error resolving URL: $e');
-        uri = Uri.parse('https://$url');
-      }
-      
-      // Additional check for empty host but with scheme
-      if (uri.host.isEmpty) {
-        throw FormatException('No host specified in URI $url');
-      }
-
-      debugPrint('Fetching content from: $uri');
-
-      // Timeout after 10 seconds
-      final response = await http.get(uri).timeout(
-        const Duration(seconds: 10),
-        onTimeout: () {
-          throw TimeoutException('Request timed out after 10 seconds');
-        },
-      );
-      
-      if (response.statusCode == 200) {
-        debugPrint('Successfully fetched content from $uri');
-        
-        // Extract content type from headers
-        String contentType = '';
-        if (response.headers.containsKey('content-type')) {
-          contentType = response.headers['content-type'] ?? '';
-        }
-        
-        // Determine if the content is likely markdown
-        bool isMarkdown = isLikelyMarkdown(response.body, contentType, url);
-        
-        return FetchResult(
-          content: response.body,
-          isMarkdown: isMarkdown,
-          contentType: contentType,
-          url: uri.toString(),
-        );
-      } else {
-        debugPrint('Failed to fetch content: Status code ${response.statusCode}');
-        return FetchResult(
-          content: _getErrorMarkdown('Failed to load content', 
-            'Server returned status code ${response.statusCode}'),
-          isMarkdown: true, // Errors are displayed as markdown
-          contentType: 'text/markdown',
-          url: uri.toString(),
-        );
+        debugPrint('Error in URL handling: $e');
+        throw e;  // Re-throw to be caught by the outer catch block
       }
     } catch (e) {
       debugPrint('Error fetching content: $e');
@@ -447,12 +687,34 @@ Technical details: $e''');
       String resolvedUrl = url;
       try {
         if (baseUrl != null && !url.contains('://') && !url.startsWith('/')) {
-          // Similar hardcoded approach as above for consistency
-          resolvedUrl = Uri(
-            scheme: 'https',
-            host: 'mmm.kranzky.com',
-            path: url
-          ).toString();
+          if (baseUrl.startsWith('http')) {
+            final baseUri = Uri.parse(baseUrl);
+            
+            // Determine if the base URL looks like a file or directory
+            final basePath = baseUri.path;
+            final segments = basePath.split('/');
+            final lastSegment = segments.isNotEmpty ? segments.last : '';
+            final isFile = lastSegment.contains('.') && !lastSegment.isEmpty;
+            
+            if (isFile) {
+              // If base looks like a file, resolve against its directory
+              final lastSlash = basePath.lastIndexOf('/');
+              final directory = lastSlash > 0 ? basePath.substring(0, lastSlash + 1) : '/';
+              resolvedUrl = baseUri.replace(path: '$directory$url').toString();
+              debugPrint('Error handler using file directory: $resolvedUrl');
+            } else {
+              // If base looks like a directory
+              final directory = basePath.endsWith('/') ? basePath : '$basePath/';
+              resolvedUrl = baseUri.replace(path: '$directory$url').toString();
+              debugPrint('Error handler using directory: $resolvedUrl');
+            }
+          } else if (baseUrl.startsWith('asset://')) {
+            resolvedUrl = 'asset://${path.join(path.dirname(baseUrl.replaceFirst('asset://', '')), url)}';
+            debugPrint('Error handler for asset URL: $resolvedUrl');
+          } else if (baseUrl.startsWith('file://')) {
+            resolvedUrl = 'file://${path.join(path.dirname(baseUrl.replaceFirst('file://', '')), url)}';
+            debugPrint('Error handler for file URL: $resolvedUrl');
+          }
         }
       } catch (urlError) {
         // Just use the original URL if we can't resolve it
@@ -466,6 +728,8 @@ Technical details: $e''');
         url: resolvedUrl,
       );
     }
+    
+    debugPrint('---------- FETCH CONTENT END ----------');
   }
 
   /// Extracts a title from markdown content.

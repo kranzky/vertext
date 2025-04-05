@@ -1,41 +1,62 @@
 # Vertext
 
-This is going to be a browser for the indie web, written in Flutter (using the
-Dart language). The browser must be lightweight and fast, with versions for iOS,
-Android, Mac and Windows desktop, together with a Web version so that users can
-try it out without needing to download it first.
+A browser for the indie web and local markdown files, written in Flutter. The browser is lightweight and fast, designed for iOS, Android, Mac, Windows, Linux, and Web platforms.
 
-The browser should allow multiple documents to be open in separate tabs, and
-should always show tabs in two side-by-side columns, where each column can
-contain multiple tabs. When clicking on a link in one tab, the link should open
-in a new tab in the other column. It should be possible to close tabs, re-open a
-tab that has just been closed and drag tabs within a column to sort them or
-between columns.
+## Current Features
 
-Tabs should show the title of the document rather than its URL. The title should
-be inferred from the contents of the document.
+- **Dual-column Layout**: Side-by-side columns for parallel browsing with tabs in each column
+- **Tab Management**: 
+  - Create, close, restore, and reorder tabs
+  - Drag tabs between columns
+  - Remember tab history and scroll position
+- **Link Handling**: 
+  - Markdown links styled in blue
+  - External links styled in red
+  - Anchor links styled in light blue (grey if invalid)
+  - Clicking links opens content in the opposite column
+- **Local File Support**:
+  - Open files with file:// URLs
+  - File picker for safe file access
+  - Asset loading from application bundle
+- **URL Features**:
+  - Relative link handling for files, assets, and web content
+  - Support for URL schemes: http://, https://, file://, asset://
+  - Special protocols: about:, vertext:
+- **Navigation**:
+  - Forward/back history for each tab
+  - Anchor link navigation with header detection
+  - Custom anchor IDs with short-form support
+- **State Persistence**:
+  - Saves browser state between sessions
+  - Remembers window size and position on desktop platforms
 
-To make the browser very lightweight, it must not use any HTML rendering at all.
-Instead, the browser is only able to retrieve and render MarkDown documents, and
-these can be rendered using the appropriate Flutter widgets.
+## MMM - Massive Markdown Matrix
 
-The renderer should support github flavoured markdown, but should be extensible
-so that it can support rendering mathtex equations in a future release, for
-example.
+Vertext is designed to browse the "Massive Markdown Matrix" (MMM), as opposed to the "World Wide Web" (WWW). It focuses exclusively on Markdown content and provides a streamlined interface for browsing interconnected markdown documents.
 
-Other things that we want to anticipate including in a future release are:
+The browser starts with the following home page: https://mmm.kranzky.com
 
-* User-selected themes that change fonts, colour and layout
-* Caching of the downloaded markdown documents and included images
+## Planned Features
+
+* User-selected themes that change fonts, color and layout
+* Caching of downloaded markdown documents and included images
 * Pre-retrieval and caching of links to other markdown documents
-* Print a document
+* Print document functionality
+* MathTex equation rendering support
+* Enhanced anchor navigation
+* Mobile-friendly interface improvements
 
-The browser should begin with the following home page: https://mmm.kranzky.com
+## Getting Started
 
-Note that mmm stands for the "Massive Markdown Matrix", as opposed to www which
-stands for the "World Wide Web".
+1. Clone the repository
+2. Run `flutter pub get` to install dependencies
+3. Launch with `flutter run`
 
-To begin with, build the simplest possible version of this project that
-correctly renders the home page.
+## Usage
 
+- Left-click links to navigate
+- Use tab bar controls to manage tabs
+- Type URLs directly or use the file picker for local files
+- Click anchor links to navigate within a document
+- Drag tabs to reorder or move between columns
 

@@ -271,6 +271,36 @@ class _BrowserScreenState extends State<BrowserScreen> {
   
   // Load content for a tab
   Future<void> _loadTabContent(TabModel tab, String url, String? baseUrl) async {
+    // CRITICAL LOGGING FOR DEBUGGING
+    debugPrint('↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓↓');
+    debugPrint('LOADING TAB CONTENT:');
+    debugPrint('URL: $url');
+    debugPrint('baseUrl: $baseUrl');
+    debugPrint('tab.url: ${tab.url}');
+    
+    // Handle simple markdown filenames with http base URLs
+    if (baseUrl != null && 
+        baseUrl.startsWith('http') && 
+        !url.contains('://') && 
+        url.contains('.') &&
+        !url.contains('/')) {
+      
+      try {
+        final baseUri = Uri.parse(baseUrl);
+        final newUrl = '${baseUri.scheme}://${baseUri.host}/$url';
+        debugPrint('Converting simple filename to absolute URL:');
+        debugPrint('Original URL: $url');
+        debugPrint('New URL: $newUrl');
+        
+        url = newUrl;
+        tab.url = newUrl;
+        baseUrl = null; // Don't need baseUrl for absolute URLs
+      } catch (e) {
+        debugPrint('Error converting to absolute URL: $e');
+      }
+    }
+    debugPrint('↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑↑');
+    
     // Set a timeout for loading
     bool timeoutOccurred = false;
     Future.delayed(const Duration(seconds: 8), () {
@@ -301,6 +331,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
       });
       
       final result = await _markdownService.fetchContent(url, baseUrl);
+      
+      debugPrint('Content loaded! URL: ${result.url}, isMarkdown: ${result.isMarkdown}');
       
       // Only update if a timeout didn't occur
       if (!timeoutOccurred) {
@@ -411,7 +443,7 @@ Please check the URL and try again.
   }
   
   // Method to handle link taps
-  void _handleLinkTap(String url, String title) {
+  void _handleLinkTap(String url, String title, TabModel? sourceTab) {
     debugPrint('Link tapped: $url, title: $title');
     
     // Only process if URL is valid
@@ -426,28 +458,79 @@ Please check the URL and try again.
     }
     
     // Determine which column the link was clicked from
-    final clickedFromActiveLeftTab = _browserState.leftColumn.activeTab != null &&
-        _browserState.leftColumn.activeTabIndex != -1;
+    final clickedFromActiveLeftTab = sourceTab != null && 
+        _browserState.leftColumn.tabs.any((tab) => tab.id == sourceTab.id);
+    
     final sourceColumn = clickedFromActiveLeftTab 
         ? _browserState.leftColumn 
         : _browserState.rightColumn;
+    
     final targetColumn = clickedFromActiveLeftTab 
         ? _browserState.rightColumn 
         : _browserState.leftColumn;
     
-    // Determine base URL for relative links
+    // CRITICAL FIX: Use the source tab's URL as the base URL, not just the active tab
+    // This ensures relative links on mmm.kranzky.com use mmm.kranzky.com as their base
     String? baseUrl;
-    if (sourceColumn.activeTab != null) {
-      baseUrl = sourceColumn.activeTab!.url;
+    if (sourceTab != null) {
+      baseUrl = sourceTab.url;
+      
+      // Debug the source tab info for verification
+      debugPrint('SOURCE TAB (from which link was clicked):');
+      debugPrint('ID: ${sourceTab.id}');
+      debugPrint('URL: ${sourceTab.url}');
+      debugPrint('Title: ${sourceTab.title}');
+    }
+    
+    // Store original URL for logging
+    final originalUrl = url;
+    
+    // SPECIAL HANDLING FOR mmm.kranzky.com AND OTHER WEB DOMAINS
+    // If the base URL is from a web domain and this is a relative link, we need to
+    // ensure it becomes a full URL to that domain
+    if (baseUrl != null && baseUrl.startsWith('http')) {
+      debugPrint('WEB DOMAIN DETECTED IN BASE URL: $baseUrl');
+      
+      // If this is a simple filename or other relative path without protocol
+      if (!url.contains('://') && !url.startsWith('http://') && !url.startsWith('https://')) {
+        try {
+          final baseUri = Uri.parse(baseUrl);
+          String newUrl;
+          
+          if (url.startsWith('/')) {
+            // Absolute path relative to domain (e.g., /path/file.md)
+            newUrl = '${baseUri.scheme}://${baseUri.host}$url';
+          } else {
+            // Simple filename or relative path (e.g., file.md or dir/file.md)
+            newUrl = '${baseUri.scheme}://${baseUri.host}/${url.startsWith('./') ? url.substring(2) : url}';
+          }
+          
+          debugPrint('🔴 CONVERTING WEB RELATIVE LINK 🔴');
+          debugPrint('Original URL: $url');
+          debugPrint('Base URL: $baseUrl');
+          debugPrint('New URL: $newUrl');
+          
+          // Use the absolute URL and clear the base URL since it's now an absolute URL
+          url = newUrl;
+          baseUrl = null;
+        } catch (e) {
+          debugPrint('Error converting to absolute URL: $e');
+        }
+      }
     }
     
     // Create a new tab for the link
     final newTab = TabModel(
       id: _uuid.v4(),
-      url: url,
+      url: url, // Use the potentially modified URL here
       title: title.isNotEmpty ? title : 'Loading...',
       isLoading: true,
     );
+    
+    // Debug log for URL transformation
+    if (url != originalUrl) {
+      debugPrint('URL was transformed from $originalUrl to $url');
+    }
     
     setState(() {
       // Add tab to target column and make it active
@@ -455,7 +538,10 @@ Please check the URL and try again.
       targetColumn.activeTabIndex = targetColumn.tabs.length - 1;
     });
     
-    // Load content for the new tab
+    // Log the final URL and base URL for debugging
+    debugPrint('Creating tab with URL: ${newTab.url}, baseUrl: $baseUrl');
+    
+    // Load content for the new tab, passing the baseUrl for proper resolution
     _loadTabContent(newTab, url, baseUrl);
   }
   
@@ -844,7 +930,7 @@ Please check the URL and try again.
                     onReorderTab: (oldIndex, newIndex) => 
                         _handleReorderTab(true, oldIndex, newIndex),
                     onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(true, tab),
-                    onLinkTap: _handleLinkTap,
+                    onLinkTap: (url, title, tab) => _handleLinkTap(url, title, tab),
                     onLinkHover: _handleLinkHover,
                     statusBarKey: leftStatusBarKey,
                     isLeft: true,
@@ -862,7 +948,7 @@ Please check the URL and try again.
                     onReorderTab: (oldIndex, newIndex) => 
                         _handleReorderTab(false, oldIndex, newIndex),
                     onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(false, tab),
-                    onLinkTap: _handleLinkTap,
+                    onLinkTap: (url, title, tab) => _handleLinkTap(url, title, tab),
                     onLinkHover: _handleLinkHover,
                     statusBarKey: rightStatusBarKey,
                     isLeft: false,

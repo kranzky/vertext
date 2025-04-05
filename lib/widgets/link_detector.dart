@@ -56,10 +56,21 @@ class _LinkDetectorState extends State<LinkDetector> {
       return LinkType.markdown;
     }
     
+    // Relative paths without extensions might still be markdown files
+    if (!url.contains('/') && !url.contains('://') && !url.contains('.') && !url.startsWith('http')) {
+      // Simple names without extensions are treated as possible markdown links
+      return LinkType.markdown;
+    }
+    
     try {
-      // Check if domain contains 'mmm' subdomain
-      final uri = Uri.parse(url);
-      if (uri.host.startsWith('mmm.')) {
+      if (url.contains('://')) {
+        // Check if domain contains 'mmm' subdomain
+        final uri = Uri.parse(url);
+        if (uri.host.startsWith('mmm.')) {
+          return LinkType.markdown;
+        }
+      } else if (url.startsWith('www.') && url.contains('mmm.')) {
+        // www.mmm.domain.com links
         return LinkType.markdown;
       }
     } catch (e) {

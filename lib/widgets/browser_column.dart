@@ -31,7 +31,7 @@ class BrowserColumn extends StatefulWidget {
   final void Function(TabModel tab) onMoveToOtherColumn;
   
   /// Callback when a link is clicked in the content
-  final void Function(String url, String title) onLinkTap;
+  final void Function(String url, String title, TabModel? sourceTab) onLinkTap;
   
   /// Callback when a link is hovered over
   final void Function(String? url, bool isLeft)? onLinkHover;
@@ -320,8 +320,14 @@ class _BrowserColumnState extends State<BrowserColumn> {
       return;
     }
     
-    // Otherwise pass to the parent for normal link handling
-    widget.onLinkTap(url, title);
+    // Get current tab info before passing to parent
+    final activeTab = widget.columnModel.activeTab;
+    if (activeTab != null) {
+      debugPrint('Link clicked in tab ${activeTab.id} with URL ${activeTab.url}');
+    }
+    
+    // Otherwise pass to the parent for normal link handling with source tab info
+    widget.onLinkTap(url, title, activeTab);
   }
 
   // Variable to track whether a programmatic scroll is in progress
