@@ -36,55 +36,42 @@ class _LinkDetectorState extends State<LinkDetector> {
 
   @override
   Widget build(BuildContext context) {
-    // We'll use GptMarkdown's linkBuilder feature to provide a custom link
-    // widget that can detect hover events and update the status bar
-    
     return Focus(
       focusNode: _focusNode,
-      child: MouseRegion(
-        cursor: SystemMouseCursors.basic,
-        onExit: (_) {
-          setState(() {
-            _hoveredLink = null;
-          });
-          widget.onHover(null);
-        },
-        child: GptMarkdown(
-          widget.markdown,
-          onLinkTab: widget.onLinkTap,
-          // Custom link builder that captures hover events
-          linkBuilder: (context, text, url, style) {
-            return MouseRegion(
-              cursor: SystemMouseCursors.click,
-              onEnter: (_) {
-                if (_hoveredLink != url) {
-                  setState(() {
-                    _hoveredLink = url;
-                  });
-                  widget.onHover(url);
-                }
-              },
-              onExit: (_) {
-                if (_hoveredLink == url) {
-                  setState(() {
-                    _hoveredLink = null;
-                  });
-                  widget.onHover(null);
-                }
-              },
-              child: GestureDetector(
-                onTap: () => widget.onLinkTap(url, text),
-                child: Text(
-                  text,
-                  style: style.copyWith(
-                    color: _hoveredLink == url ? Colors.blue.shade700 : Colors.blue.shade500,
-                    decoration: _hoveredLink == url ? TextDecoration.underline : TextDecoration.none,
-                  ),
+      child: GptMarkdown(
+        widget.markdown,
+        onLinkTab: widget.onLinkTap,
+        linkBuilder: (context, text, url, style) {
+          return MouseRegion(
+            cursor: SystemMouseCursors.click,
+            onEnter: (_) {
+              if (_hoveredLink != url) {
+                setState(() {
+                  _hoveredLink = url;
+                });
+                widget.onHover(url);
+              }
+            },
+            onExit: (_) {
+              if (_hoveredLink == url) {
+                setState(() {
+                  _hoveredLink = null;
+                });
+                widget.onHover(null);
+              }
+            },
+            child: GestureDetector(
+              onTap: () => widget.onLinkTap(url, text),
+              child: Text(
+                text,
+                style: style.copyWith(
+                  color: _hoveredLink == url ? Colors.blue.shade700 : Colors.blue.shade500,
+                  decoration: _hoveredLink == url ? TextDecoration.underline : TextDecoration.none,
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          );
+        },
       ),
     );
   }

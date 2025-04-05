@@ -116,10 +116,12 @@ class _BrowserColumnState extends State<BrowserColumn> {
                     : Padding(
                         padding: const EdgeInsets.all(16.0),
                         child: SingleChildScrollView(
-                          child: LinkDetector(
-                            markdown: widget.columnModel.activeTab!.content,
-                            onLinkTap: widget.onLinkTap,
-                            onHover: _handleLinkHover,
+                          child: SelectionArea(
+                            child: LinkDetector(
+                              markdown: widget.columnModel.activeTab!.content,
+                              onLinkTap: widget.onLinkTap,
+                              onHover: _handleLinkHover,
+                            ),
                           ),
                         ),
                       ),
