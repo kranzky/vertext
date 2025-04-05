@@ -256,13 +256,23 @@ class _BrowserColumnState extends State<BrowserColumn> {
     final position = _headingPositions[tab.id]?[anchorId];
     
     if (position != null && controller.hasClients) {
-      // Animate scroll to the position
-      controller.animateTo(
-        position,
-        duration: const Duration(milliseconds: 300),
-        curve: Curves.easeInOut,
-      );
-      debugPrint('Scrolling to anchor #$anchorId at position $position');
+      // Set flag to indicate programmatic scrolling
+      _isRestoringScroll = true;
+      
+      // Jump directly to the position without animation
+      controller.jumpTo(position);
+      debugPrint('Jumped to anchor #$anchorId at position $position');
+      
+      // Reset flag after a short delay and save the new position
+      Future.delayed(const Duration(milliseconds: 100), () {
+        _isRestoringScroll = false;
+        
+        // Update the saved position
+        if (controller.hasClients) {
+          tab.scrollPosition = position;
+          debugPrint('Saved anchor position $position for tab ${tab.id}');
+        }
+      });
       
       // This is a valid anchor
       _invalidAnchors[tab.id]!.remove(anchor);
