@@ -75,7 +75,6 @@ class _LinkDetectorState extends State<LinkDetector> {
       }
     } catch (e) {
       // If URL parsing fails, don't crash
-      debugPrint('Error parsing URL: $e');
     }
     
     return LinkType.external;

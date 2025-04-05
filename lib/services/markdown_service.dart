@@ -126,7 +126,6 @@ class MarkdownService {
         assetName = 'assets/markdown/$assetName';
       }
       
-      debugPrint('Loading asset: $assetName');
       final content = await rootBundle.loadString(assetName);
       
       return FetchResult(
@@ -136,7 +135,6 @@ class MarkdownService {
         url: 'asset://$assetName',
       );
     } catch (e) {
-      debugPrint('Error loading asset $assetName: $e');
       return FetchResult(
         content: _getErrorMarkdown('Asset Not Found', 'Could not load the asset: $assetName\n\nError: $e'),
         isMarkdown: true,
@@ -166,9 +164,7 @@ class MarkdownService {
           _appBundlePath = _appDocumentsPath;
         }
         
-        debugPrint('Initialized app paths: documents=$_appDocumentsPath, bundle=$_appBundlePath');
       } catch (e) {
-        debugPrint('Error initializing app paths: $e');
         // Fallback to a reasonable default
         _appDocumentsPath = '.';
         _appBundlePath = '.';
@@ -196,7 +192,6 @@ class MarkdownService {
     
     for (final potentialPath in potentialPaths) {
       if (await File(potentialPath).exists()) {
-        debugPrint('Resolved relative path "$relativePath" to "$potentialPath"');
         return potentialPath;
       }
     }
@@ -284,7 +279,6 @@ Error: ${e.message}
         }
       }
     } catch (e) {
-      debugPrint('Error loading local file: $e');
       return FetchResult(
         content: _getErrorMarkdown('Error Loading File', 'Could not load file: $filePath\n\nError: $e'),
         isMarkdown: true,
@@ -300,8 +294,6 @@ Error: ${e.message}
   /// Throws an exception if the fetch fails.
   Future<FetchResult> fetchContent(String url, [String? baseUrl]) async {
     try {
-      debugPrint('---------- FETCH CONTENT START ----------');
-      debugPrint('Fetching content from URL: $url with baseUrl: $baseUrl');
       
       // First check for special protocols
       if (isSpecialProtocol(url)) {
@@ -310,7 +302,6 @@ Error: ${e.message}
       
       // Check for full web URLs that include hostname
       if (url.startsWith('http://') || url.startsWith('https://')) {
-        debugPrint('Processing as full web URL: $url');
         final uri = Uri.parse(url);
         
         // Fetch content from web
@@ -322,7 +313,6 @@ Error: ${e.message}
         );
         
         if (response.statusCode == 200) {
-          debugPrint('Successfully fetched web content from $uri');
           
           // Extract content type from headers
           String contentType = '';
@@ -370,7 +360,6 @@ Error: ${e.message}
             final assetPath = baseUrl.replaceFirst('asset://', '');
             final dirName = path.dirname(assetPath);
             final joinedPath = path.join(dirName, url);
-            debugPrint('Resolving asset-relative path: $url based on $assetPath -> $joinedPath');
             return loadAssetMarkdown(joinedPath);
           }
         }
@@ -382,7 +371,6 @@ Error: ${e.message}
             final basePath = baseUrl.replaceFirst('file://', '');
             final dirName = path.dirname(basePath);
             final joinedPath = path.join(dirName, url);
-            debugPrint('Resolving file-relative path: $url based on $basePath -> $joinedPath');
             return loadLocalFile(joinedPath);
           }
         }
@@ -394,13 +382,9 @@ Error: ${e.message}
               final baseUri = Uri.parse(baseUrl);
               Uri resolvedUri;
               
-              // Log the original URL and base for debugging
-              debugPrint('Resolving web relative URL: $url with base: $baseUrl');
-              
               if (url.startsWith('/')) {
                 // Absolute path relative to domain root
                 resolvedUri = baseUri.replace(path: url);
-                debugPrint('Absolute path to domain: $resolvedUri');
               } else {
                 // Check if the base URL ends with a filename pattern
                 final baseFilename = baseUri.path.split('/').last;
@@ -424,7 +408,6 @@ Error: ${e.message}
                   }
                   
                   resolvedUri = baseUri.replace(path: joinedPath);
-                  debugPrint('File-relative path resolution: $resolvedUri');
                 } else {
                   // Base URL is likely a directory, try to resolve directly
                   String basePath = baseUri.path;
@@ -437,11 +420,8 @@ Error: ${e.message}
                   joinedPath = joinedPath.replaceAll('//', '/');
                   
                   resolvedUri = baseUri.replace(path: joinedPath);
-                  debugPrint('Directory-relative path resolution: $resolvedUri');
                 }
               }
-              
-              debugPrint('Resolved web-relative URL: $url based on $baseUrl -> $resolvedUri');
               
               // After resolving the URL, fetch the content
               final response = await http.get(resolvedUri).timeout(
@@ -452,8 +432,6 @@ Error: ${e.message}
               );
               
               if (response.statusCode == 200) {
-                debugPrint('Successfully fetched content from $resolvedUri');
-                
                 // Extract content type from headers
                 String contentType = '';
                 if (response.headers.containsKey('content-type')) {
@@ -479,8 +457,6 @@ Error: ${e.message}
                 );
               }
             } catch (e) {
-              debugPrint('Error resolving web-relative URL: $e');
-              
               // Fall back to simpler URL joining strategy on error
               try {
                 final baseUri = Uri.parse(baseUrl);
@@ -501,25 +477,21 @@ Error: ${e.message}
                   final int lastSlash = basePath.lastIndexOf('/');
                   final String directory = lastSlash > 0 ? basePath.substring(0, lastSlash + 1) : '/';
                   resolvedUrl = '$scheme://$host$directory$url';
-                  debugPrint('Fallback using directory of file: $resolvedUrl');
                 } else {
                   // If base URL looks like a directory
                   final String directory = basePath.endsWith('/') ? basePath : '$basePath/';
                   resolvedUrl = '$scheme://$host$directory$url';
-                  debugPrint('Fallback using directory: $resolvedUrl');
                 }
                 
                 // As a last resort, try relative to root
                 if (resolvedUrl.contains('//') && !resolvedUrl.contains('://')) {
                   resolvedUrl = '$scheme://$host/$url';
-                  debugPrint('Last resort fallback to root: $resolvedUrl');
                 }
                 
                 // Start a new fetch with the resolved URL but no base URL to avoid loops
                 return fetchContent(resolvedUrl);
               } catch (fallbackError) {
-                debugPrint('Error in fallback URL resolution: $fallbackError');
-                throw e; // Throw original error if fallback fails
+                  throw e; // Throw original error if fallback fails
               }
             }
           }
@@ -530,19 +502,13 @@ Error: ${e.message}
       if (!url.contains('/') && !url.contains('://') && !url.startsWith('http') &&
           (url.endsWith('.md') || url.endsWith('.markdown'))) {
         
-        debugPrint('===== SIMPLE MARKDOWN FILENAME DETECTED: $url =====');
-        debugPrint('URL: $url');
-        debugPrint('BaseURL: $baseUrl');
         
         // Check if we have an http baseUrl - if so, treat as web relative path
         if (baseUrl != null && baseUrl.startsWith('http')) {
-          debugPrint('Treating simple markdown filename as web relative path: $url with base: $baseUrl');
-          
           try {
             final baseUri = Uri.parse(baseUrl);
             // Construct URL relative to the host root
             final resolvedUri = baseUri.replace(path: url);
-            debugPrint('Resolved to web URL: $resolvedUri');
             
             // Fetch the content from the web
             final response = await http.get(resolvedUri).timeout(
@@ -553,7 +519,6 @@ Error: ${e.message}
             );
             
             if (response.statusCode == 200) {
-              debugPrint('Successfully fetched web content from $resolvedUri');
               String contentType = response.headers['content-type'] ?? '';
               return FetchResult(
                 content: response.body,
@@ -562,7 +527,6 @@ Error: ${e.message}
                 url: resolvedUri.toString(),
               );
             } else {
-              debugPrint('Failed to fetch from resolved URL: $resolvedUri, status: ${response.statusCode}');
               return FetchResult(
                 content: _getErrorMarkdown('Failed to load content', 
                   'Server returned status code ${response.statusCode}'),
@@ -572,23 +536,15 @@ Error: ${e.message}
               );
             }
           } catch (e) {
-            debugPrint('Error loading web markdown: $e');
             // Fall back to trying as an asset
           }
         }
         
         // No http base context or web loading failed, assume it's a root-level asset
-        debugPrint('Treating simple markdown filename as asset: $url');
-        try {
-          return loadAssetMarkdown(url);
-        } catch (assetError) {
-          debugPrint('Error loading as asset: $assetError');
-          throw assetError; // Re-throw to be caught by outer try-catch
-        }
+        return loadAssetMarkdown(url);
       }
       // Check for non-URL file paths with extensions that might be local files
       if (!url.contains('://') && !url.startsWith('http') && url.contains('.')) {
-        debugPrint('Treating as potential local file: $url');
         return loadLocalFile(url);
       }
       
@@ -618,7 +574,6 @@ Error: ${e.message}
           throw FormatException('No host specified in URI $url');
         }
         
-        debugPrint('Fetching content from absolute URL: $uri');
         
         // Timeout after 10 seconds
         final response = await http.get(uri).timeout(
@@ -629,7 +584,6 @@ Error: ${e.message}
         );
         
         if (response.statusCode == 200) {
-          debugPrint('Successfully fetched content from $uri');
           
           // Extract content type from headers
           String contentType = '';
@@ -647,7 +601,6 @@ Error: ${e.message}
             url: uri.toString(),
           );
         } else {
-          debugPrint('Failed to fetch content: Status code ${response.statusCode}');
           return FetchResult(
             content: _getErrorMarkdown('Failed to load content', 
               'Server returned status code ${response.statusCode}'),
@@ -657,11 +610,9 @@ Error: ${e.message}
           );
         }
       } catch (e) {
-        debugPrint('Error in URL handling: $e');
         throw e;  // Re-throw to be caught by the outer catch block
       }
     } catch (e) {
-      debugPrint('Error fetching content: $e');
       
       String errorContent;
       // Return a user-friendly error message based on the exception type
@@ -701,24 +652,19 @@ Technical details: $e''');
               final lastSlash = basePath.lastIndexOf('/');
               final directory = lastSlash > 0 ? basePath.substring(0, lastSlash + 1) : '/';
               resolvedUrl = baseUri.replace(path: '$directory$url').toString();
-              debugPrint('Error handler using file directory: $resolvedUrl');
             } else {
               // If base looks like a directory
               final directory = basePath.endsWith('/') ? basePath : '$basePath/';
               resolvedUrl = baseUri.replace(path: '$directory$url').toString();
-              debugPrint('Error handler using directory: $resolvedUrl');
             }
           } else if (baseUrl.startsWith('asset://')) {
             resolvedUrl = 'asset://${path.join(path.dirname(baseUrl.replaceFirst('asset://', '')), url)}';
-            debugPrint('Error handler for asset URL: $resolvedUrl');
           } else if (baseUrl.startsWith('file://')) {
             resolvedUrl = 'file://${path.join(path.dirname(baseUrl.replaceFirst('file://', '')), url)}';
-            debugPrint('Error handler for file URL: $resolvedUrl');
           }
         }
       } catch (urlError) {
         // Just use the original URL if we can't resolve it
-        debugPrint('Error resolving URL in error handler: $urlError');
       }
       
       return FetchResult(
@@ -729,7 +675,6 @@ Technical details: $e''');
       );
     }
     
-    debugPrint('---------- FETCH CONTENT END ----------');
   }
 
   /// Extracts a title from markdown content.

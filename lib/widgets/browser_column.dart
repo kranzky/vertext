@@ -121,11 +121,9 @@ class _BrowserColumnState extends State<BrowserColumn> {
         if (_scrollControllers[tab.id]!.hasClients && !_isRestoringScroll) {
           final position = _scrollControllers[tab.id]!.position.pixels;
           tab.scrollPosition = position;
-          debugPrint('Saved position $position for tab ${tab.id}');
         }
       });
       
-      debugPrint('Created scroll controller for tab ${tab.id}');
     }
     
     return _scrollControllers[tab.id]!;
@@ -162,23 +160,19 @@ class _BrowserColumnState extends State<BrowserColumn> {
       
       // Store with standard generated ID
       _headingPositions[tab.id]![standardId] = position;
-      debugPrint('Added standard heading ID #$standardId for "$headingText"');
       
       // If there's an explicit ID, add that too
       if (explicitId != null) {
         _headingPositions[tab.id]![explicitId] = position;
-        debugPrint('Added explicit heading ID #$explicitId for "$headingText"');
       }
       
       // Add short one-word ID
       _headingPositions[tab.id]![shortId] = position;
-      debugPrint('Added short heading ID #$shortId for "$headingText"');
       
       // Also try adding ID without plural (for cases like "Headers" -> "header")
       if (shortId.endsWith('s')) {
         final singularId = shortId.substring(0, shortId.length - 1);
         _headingPositions[tab.id]![singularId] = position;
-        debugPrint('Added singular heading ID #$singularId for "$headingText"');
       }
     }
     
@@ -218,7 +212,6 @@ class _BrowserColumnState extends State<BrowserColumn> {
         if (_headingPositions[tabId]!.containsKey(possibleHeading)) {
           final position = _headingPositions[tabId]![possibleHeading]!;
           _headingPositions[tabId]![specialId] = position;
-          debugPrint('Added special case mapping #$specialId -> #$possibleHeading');
           break;
         }
       }
@@ -261,7 +254,6 @@ class _BrowserColumnState extends State<BrowserColumn> {
       
       // Jump directly to the position without animation
       controller.jumpTo(position);
-      debugPrint('Jumped to anchor #$anchorId at position $position');
       
       // Reset flag after a short delay and save the new position
       Future.delayed(const Duration(milliseconds: 100), () {
@@ -270,7 +262,6 @@ class _BrowserColumnState extends State<BrowserColumn> {
         // Update the saved position
         if (controller.hasClients) {
           tab.scrollPosition = position;
-          debugPrint('Saved anchor position $position for tab ${tab.id}');
         }
       });
       
@@ -280,7 +271,6 @@ class _BrowserColumnState extends State<BrowserColumn> {
     } else {
       // This is an invalid anchor that doesn't correspond to any heading
       _invalidAnchors[tab.id]!.add(anchor);
-      debugPrint('Could not find anchor #$anchorId');
       return false;
     }
   }
@@ -323,7 +313,6 @@ class _BrowserColumnState extends State<BrowserColumn> {
     // Get current tab info before passing to parent
     final activeTab = widget.columnModel.activeTab;
     if (activeTab != null) {
-      debugPrint('Link clicked in tab ${activeTab.id} with URL ${activeTab.url}');
     }
     
     // Otherwise pass to the parent for normal link handling with source tab info
@@ -347,7 +336,6 @@ class _BrowserColumnState extends State<BrowserColumn> {
         // Jump directly to the position
         controller.jumpTo(tab.scrollPosition);
         
-        debugPrint('Restored scroll position ${tab.scrollPosition} for tab ${tab.id} (attempt ${4-attempts})');
         
         // Reset flag after a short delay
         Future.delayed(const Duration(milliseconds: 100), () {
