@@ -670,12 +670,17 @@ In a future version, we plan to implement this feature.
   void _handleSelectTab(bool inLeftColumn, int index) {
     final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
     
-    setState(() {
-      column.activeTabIndex = index;
-    });
-    
-    // Save state after changing active tab
-    _saveBrowserState();
+    // Only process if it's actually a different tab
+    if (column.activeTabIndex != index) {
+      setState(() {
+        column.activeTabIndex = index;
+      });
+      
+      // Save state after changing active tab
+      _saveBrowserState();
+      
+      debugPrint('Selected tab at index $index with scroll position: ${column.tabs[index].scrollPosition}');
+    }
   }
   
   // Handle closing a tab

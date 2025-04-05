@@ -20,6 +20,9 @@ class TabModel {
   /// Whether this tab is currently loading content
   bool isLoading;
   
+  /// Current scroll position in the document
+  double scrollPosition;
+  
   /// History of URLs visited in this tab
   final List<String> history;
   
@@ -33,6 +36,7 @@ class TabModel {
     this.title = 'Loading...',
     this.content = '',
     this.isLoading = true,
+    this.scrollPosition = 0.0,
   }) : 
     history = [url],
     historyIndex = 0;
@@ -45,6 +49,7 @@ class TabModel {
       title: json['title'] as String,
       content: json['content'] as String,
       isLoading: false, // Always start non-loading when restoring
+      scrollPosition: (json['scrollPosition'] as num?)?.toDouble() ?? 0.0,
     )
     // Set history and historyIndex after constructor
     ..history.clear()
@@ -59,6 +64,7 @@ class TabModel {
       'url': url,
       'title': title,
       'content': content,
+      'scrollPosition': scrollPosition,
       'history': history,
       'historyIndex': historyIndex,
     };
