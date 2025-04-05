@@ -421,27 +421,21 @@ Please check the URL and try again.
     
     // Handle anchor links (e.g., #installation-instructions)
     if (url.startsWith('#')) {
-      // Currently we don't support scrolling to anchors
-      final anchorTab = TabModel(
-        id: _uuid.v4(),
-        url: '',
-        title: 'Anchor Link',
-        content: '''# Anchor Link
-
-The link you clicked ($url) is an anchor link to a section within the current page.
-
-**Note:** Vertext currently doesn't support scrolling to specific sections within a document.
-
-In a future version, we plan to implement this feature.
-''',
-        isLoading: false,
+      // For now, show a toast message that anchor links are being detected
+      // but not yet implemented for navigation
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Anchor link detected: $url'),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2),
+          action: SnackBarAction(
+            label: 'OK',
+            onPressed: () {},
+          ),
+        ),
       );
       
-      setState(() {
-        // Add tab to right column
-        _browserState.rightColumn.tabs.add(anchorTab);
-        _browserState.rightColumn.activeTabIndex = _browserState.rightColumn.tabs.length - 1;
-      });
+      // No need to create a new tab for now
       return;
     }
     

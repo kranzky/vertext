@@ -2,6 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
 
+/// Enum to categorize different types of links
+enum LinkType {
+  /// Links to markdown documents (.md, .markdown, mmm.*)
+  markdown,
+  
+  /// Links to non-markdown external resources
+  external,
+  
+  /// Anchor links to sections within the same document (#section)
+  anchor,
+}
+
 /// A widget that wraps the GptMarkdown to detect when the user hovers over links
 class LinkDetector extends StatefulWidget {
   /// The markdown content
@@ -27,26 +39,55 @@ class LinkDetector extends StatefulWidget {
 class _LinkDetectorState extends State<LinkDetector> {
   String? _hoveredLink;
   
-  /// Checks if a URL likely points to a markdown document
-  bool isLikelyMarkdownLink(String url) {
+  /// Identifies the type of link
+  LinkType identifyLinkType(String url) {
+    // Check for anchor links first
+    if (url.startsWith('#')) {
+      return LinkType.anchor;
+    }
+    
     final lowerUrl = url.toLowerCase();
     // Check if it ends with .md or .markdown extension
     if (lowerUrl.endsWith('.md') || lowerUrl.endsWith('.markdown')) {
-      return true;
+      return LinkType.markdown;
     }
     
     try {
       // Check if domain contains 'mmm' subdomain
       final uri = Uri.parse(url);
       if (uri.host.startsWith('mmm.')) {
-        return true;
+        return LinkType.markdown;
       }
     } catch (e) {
       // If URL parsing fails, don't crash
       debugPrint('Error parsing URL: $e');
     }
     
-    return false;
+    return LinkType.external;
+  }
+  
+  /// Checks if a URL likely points to a markdown document (legacy method)
+  bool isLikelyMarkdownLink(String url) {
+    return identifyLinkType(url) == LinkType.markdown;
+  }
+  
+  /// Get the appropriate color for a link based on its type
+  Color _getLinkColor(String url) {
+    final isHovered = _hoveredLink == url;
+    
+    switch (identifyLinkType(url)) {
+      case LinkType.markdown:
+        // Blue for markdown links
+        return isHovered ? Colors.blue.shade700 : Colors.blue.shade500;
+        
+      case LinkType.external:
+        // Red for external links
+        return isHovered ? Colors.red.shade700 : Colors.red.shade500;
+        
+      case LinkType.anchor:
+        // Light blue for anchor links
+        return isHovered ? Colors.lightBlue.shade400 : Colors.lightBlue.shade300;
+    }
   }
   
   @override
@@ -81,13 +122,11 @@ class _LinkDetectorState extends State<LinkDetector> {
             child: Text(
               text,
               style: style.copyWith(
-                // Use blue for markdown links, red for external links
-                color: isLikelyMarkdownLink(url) 
-                  ? (_hoveredLink == url ? Colors.blue.shade700 : Colors.blue.shade500)
-                  : (_hoveredLink == url ? Colors.red.shade700 : Colors.red.shade500),
+                // Style based on link type
+                color: _getLinkColor(url),
                 decoration: _hoveredLink == url ? TextDecoration.underline : TextDecoration.none,
                 // Make markdown links slightly more prominent
-                fontWeight: isLikelyMarkdownLink(url) ? FontWeight.w500 : null,
+                fontWeight: identifyLinkType(url) == LinkType.markdown ? FontWeight.w500 : null,
               ),
             ),
           ),
