@@ -162,8 +162,8 @@ class _BrowserScreenState extends State<BrowserScreen> {
   // Service for fetching markdown content
   final MarkdownService _markdownService = MarkdownService();
   
-  // Default homepage URL as specified in the project requirements
-  static const String _homeUrl = 'https://mmm.kranzky.com';
+  // Default homepage URL is now a local asset
+  static const String _homeUrl = 'asset://assets/markdown/welcome.md';
   
   // Storage key for saving browser state
   static const String _storageKey = 'vertext_browser_state';
@@ -363,7 +363,7 @@ _Click on another markdown link to load content in this pane._
   String _getWelcomeText() {
     return '''# Welcome to Vertext!
 
-This is a browser for the indie web, written in Flutter.
+This is a browser for the indie web and local markdown files, written in Flutter.
 
 The browser is lightweight and fast, with planned versions for:
 * iOS
@@ -376,14 +376,16 @@ The browser is lightweight and fast, with planned versions for:
 * Renders Markdown content only
 * Side-by-side columns for tabs
 * Links open in the opposite column
-* Lightweight and fast
+* Supports local files with file:// URLs
+* Loads files from application assets
+* Remembers scroll position per tab
 
 ## Try clicking these links:
 
 * [Visit mmm.kranzky.com](https://mmm.kranzky.com)
-* [Example 1: GitHub](https://github.com)
-* [Example 2: Flutter Documentation](https://flutter.dev/docs)
-* [Example 3: Markdown Guide](https://www.markdownguide.org)
+* [About Markdown](about:markdown)
+* [Local Sample](sample.md)
+* [Learn More](https://www.markdownguide.org)
 ''';
   }
   
