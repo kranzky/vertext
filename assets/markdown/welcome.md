@@ -1,6 +1,6 @@
 # Welcome to Vertext
 
-Vertext is a lightweight browser for the Massive Markdown Matris, or MMM.
+Vertext is a lightweight browser for the Massive Markdown Matrix, or MMM.
 
 ## Features
 
