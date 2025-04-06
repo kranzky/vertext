@@ -1,6 +1,6 @@
 # Welcome to Vertext
 
-Vertext is a lightweight browser for Markdown content, designed for the Indie Web.
+Vertext is a lightweight browser for the Massive Markdown Matris, or MMM.
 
 ## Features
 
@@ -16,18 +16,11 @@ Vertext is a lightweight browser for Markdown content, designed for the Indie We
 
 Try clicking these links:
 
-- [Visit mmm.kranzky.com](https://mmm.kranzky.com) - An indie web community
+- [Visit mmm.kranzky.com](https://mmm.kranzky.com) - The first MMM site
 - [About Markdown](about:markdown) - Learn more about Markdown syntax
 - [Local Sample](sample.md) - A sample local file
 - [Anchor Links Demo](anchors_demo.md) - Try out anchor link navigation
 - [Custom Anchor IDs](custom_anchors.md) - Test custom short-form anchor IDs
-
-## Keyboard Shortcuts
-
-- `Ctrl+T` (or `Cmd+T` on Mac): New tab
-- `Ctrl+W` (or `Cmd+W` on Mac): Close tab
-- `Ctrl+Tab`: Next tab
-- `Ctrl+Shift+Tab`: Previous tab
 
 ## Supported Platforms
 
