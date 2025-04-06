@@ -1,6 +1,6 @@
 # Vertext
 
-A browser for the indie web and local markdown files, written in Flutter. The browser is lightweight and fast, designed for iOS, Android, Mac, Windows, Linux, and Web platforms.
+A browser for the Massive Markdown Matrix, written in Flutter. The browser is lightweight and fast, designed for iOS, Android, Mac, Windows, Linux, and Web platforms.
 
 ## Current Features
 
