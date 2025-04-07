@@ -118,17 +118,28 @@ class _LinkDetectorState extends State<LinkDetector> {
       widget.markdown,
       onLinkTab: widget.onLinkTap,
       linkBuilder: (context, text, url, style) {
-        // Create a TextButton for links - this handles cursor changes correctly
+        // Let's go back to the basics but with a custom baseline setting
         return TextButton(
           onPressed: () => widget.onLinkTap(url, text),
           style: TextButton.styleFrom(
-            minimumSize: Size.zero,
+            // Essential for proper text alignment
             padding: EdgeInsets.zero,
+            minimumSize: Size.zero,
             tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            // No shape decorations
             shape: const RoundedRectangleBorder(),
+            // Match surrounding text alignment
+            alignment: Alignment.centerLeft,
+            // Crucial for proper baseline alignment:
+            visualDensity: VisualDensity.compact,
+            // Disable all hover and splash effects
+            foregroundColor: _getLinkColor(url),
+            // No overlap with text
+            backgroundColor: Colors.transparent,
           ),
+          // Use MouseRegion to handle hover state
           child: MouseRegion(
-            cursor: SystemMouseCursors.click, // Explicitly set cursor to pointer
+            cursor: SystemMouseCursors.click,
             onEnter: (_) {
               setState(() {
                 _hoveredLink = url;
@@ -141,14 +152,19 @@ class _LinkDetectorState extends State<LinkDetector> {
               });
               widget.onHover(null);
             },
-            child: Text(
-              text,
-              style: style.copyWith(
-                // Style based on link type
-                color: _getLinkColor(url),
-                decoration: _hoveredLink == url ? TextDecoration.underline : TextDecoration.none,
-                // Make markdown links slightly more prominent
-                fontWeight: identifyLinkType(url) == LinkType.markdown ? FontWeight.w500 : null,
+            // Use Transform to explicitly move text down by 2 pixels
+            child: Transform.translate(
+              offset: const Offset(0, 2.0),
+              child: Text(
+                text,
+                // Use the original style with minimal changes
+                style: style.copyWith(
+                  color: _getLinkColor(url),
+                  fontWeight: identifyLinkType(url) == LinkType.markdown ? FontWeight.w500 : style.fontWeight,
+                  decoration: _hoveredLink == url ? TextDecoration.underline : TextDecoration.none,
+                  // Keep decoration below text
+                  decorationThickness: 1.0, 
+                ),
               ),
             ),
           ),

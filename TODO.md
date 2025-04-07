@@ -2,8 +2,6 @@
 
 ## Now
 
-* Vertical alignment of links.
-* Proportional font for `this`.
 * Make the web version open non-markdown links in a new tab.
 * Get the file open dialog working for the web version.
 * Make sure we can load relative image paths.
