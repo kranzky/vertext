@@ -5,23 +5,15 @@
 * Make the web version open non-markdown links in a new tab.
 * Get the file open dialog working for the web version.
 * Make sure we can load relative image paths.
-
-## Soon
-
-* Fix jerky scrolling when lots of anchor links are present.
-* Strip out HTML tags (this will need to use the markdown parser to make sure
-  that we still allow HTML tags in code blocks, for example).
-* Allow :these: kinds of emojis to work (will probably require similar parsing
-  to stripping out the image tags).
+* Publish an mmm version of my diary at https://kranzky.github.io/mmm/index.md
 
 ## Later
 
-* Add syntax highlighting for code blocks.
-* Add a mode to show the table of contents, perhaps in a pop-out sidebar.
 * Full UI redesign.
-  + Only the left column has tabs, and these can stretch the full width.
-    - The icons to add a tab and re-open a tab remain for the left column only.
-      Remove the icon to switch tabs.
+  + Only the left column has tabs, and these can be arranged vertically in a new
+    column on the LHS of the display.
+    - The icons to add a tab and re-open a tab remain for the left column only,
+      and are at the top of the tab column. Remove the icon to switch tabs.
   + Links always open in the right tab, replacing what was there before.
     - The exception is that if the link is already open, the tab it is in will
       be brought to front, and a toast message will alert the user.
@@ -40,5 +32,12 @@
   stacked on top of each other or the user can quickly switch between the left
   and right columns.
 * Implement a night mode.
+* Add monospace font for code blocks.
+* Add syntax highlighting for code blocks.
+* Add a mode to show the table of contents, perhaps in a pop-out sidebar.
 * Implement themes (fonts, colours, sizes etc).
+* Strip out HTML tags (this will need to use the markdown parser to make sure
+  that we still allow HTML tags in code blocks, for example).
+* Allow :these: kinds of emojis to work (will probably require similar parsing
+  to stripping out the image tags).
 * Package for distribution and launch version 1.0.
