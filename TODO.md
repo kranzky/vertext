@@ -2,11 +2,8 @@
 
 ## Now
 
-* Make sure we can load relative image paths.
+* Get signed windows and mac builds uploaded
 * Publish an mmm version of my diary at https://kranzky.github.io/mmm/index.md
-* Get code blocks working properly:
-  + Monospace font
-  + Syntax highlighting
 
 ## Soon
 
@@ -44,4 +41,7 @@
   that we still allow HTML tags in code blocks, for example).
 * Allow :these: kinds of emojis to work (will probably require similar parsing
   to stripping out the image tags).
+* Get code blocks working properly:
+  + Monospace font
+  + Syntax highlighting
 * Package for distribution and launch version 1.0.

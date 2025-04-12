@@ -423,6 +423,7 @@ class _BrowserColumnState extends State<BrowserColumn> {
                                   onLinkTap: _handleLinkTap, // Use our local handler first
                                   onHover: _handleLinkHover,
                                   isValidAnchorLink: isValidAnchorLink, // Validate anchor links
+                                  baseUrl: activeTab.url, // Current URL for resolving relative paths
                                 ),
                               ),
                             );

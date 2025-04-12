@@ -55,6 +55,10 @@ Here are some examples of anchor links:
 
 You can also create links to very specific sections. For example, link to the [Best Practices](#best-practices) section.
 
+![App Icon](../icons/app_icon.svg)
+
+This image is referenced with a relative path: `![App Icon](../icons/app_icon.svg)`
+
 Invalid links (shown in grey):
 - This section [does not exist](#non-existent-section)
 - [Another invalid link](#missing-heading) that has no target

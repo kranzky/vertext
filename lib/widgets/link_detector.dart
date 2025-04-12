@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:gpt_markdown/gpt_markdown.dart';
+import '../services/markdown_service.dart';
 
 /// Enum to categorize different types of links
 enum LinkType {
@@ -27,6 +28,9 @@ class LinkDetector extends StatefulWidget {
   
   /// Function to check if an anchor link is valid (if null, all anchor links are assumed valid)
   final bool Function(String anchorLink)? isValidAnchorLink;
+  
+  /// The current URL for resolving relative references
+  final String? baseUrl;
 
   const LinkDetector({
     super.key,
@@ -34,6 +38,7 @@ class LinkDetector extends StatefulWidget {
     required this.onLinkTap,
     required this.onHover,
     this.isValidAnchorLink,
+    this.baseUrl,
   });
 
   @override
@@ -42,6 +47,7 @@ class LinkDetector extends StatefulWidget {
 
 class _LinkDetectorState extends State<LinkDetector> {
   String? _hoveredLink;
+  final MarkdownService _markdownService = MarkdownService();
   
   /// Identifies the type of link
   LinkType identifyLinkType(String url) {
@@ -80,6 +86,144 @@ class _LinkDetectorState extends State<LinkDetector> {
     return LinkType.external;
   }
   
+  /// Process markdown to resolve relative image URLs
+  String processMarkdownImages(String markdown) {
+    if (widget.baseUrl == null) {
+      return markdown; // No base URL to resolve against
+    }
+    
+    // Regular expression to find image references in markdown
+    // Handles both standard format: ![alt text](image-url)
+    // And dimensions format: ![50x50 alt text](image-url)
+    final imageRegex = RegExp(r'!\[(?:(\d+)x(\d+)\s+)?(.*?)\]\((.*?)\)', multiLine: true);
+    
+    return markdown.replaceAllMapped(imageRegex, (match) {
+      final width = match.group(1);
+      final height = match.group(2);
+      final altText = match.group(3) ?? '';
+      final imageUrl = match.group(4) ?? '';
+      
+      // Skip if the image URL is already absolute
+      if (imageUrl.startsWith('http://') || 
+          imageUrl.startsWith('https://') || 
+          imageUrl.startsWith('file://') || 
+          imageUrl.startsWith('asset://') ||
+          imageUrl.startsWith('data:')) {
+        return match.group(0)!;
+      }
+      
+      // For relative URLs, resolve them using the same logic as links
+      String resolvedUrl = _resolveRelativeUrl(imageUrl, widget.baseUrl!);
+      
+      // Reconstruct the image markdown with dimensions if provided
+      if (width != null && height != null) {
+        return '![$width x$height $altText]($resolvedUrl)';
+      } else {
+        return '![$altText]($resolvedUrl)';
+      }
+    });
+  }
+  
+  /// Resolve a relative URL against a base URL
+  String _resolveRelativeUrl(String relativeUrl, String baseUrl) {
+    // Skip anchor links
+    if (relativeUrl.startsWith('#')) {
+      return relativeUrl;
+    }
+    
+    try {
+      // Handle different base URL types
+      if (baseUrl.startsWith('asset://')) {
+        // Asset-relative paths
+        final assetPath = baseUrl.replaceFirst('asset://', '');
+        final dirPath = assetPath.contains('/') 
+            ? assetPath.substring(0, assetPath.lastIndexOf('/'))
+            : '';
+        
+        if (relativeUrl.startsWith('/')) {
+          // Absolute path relative to asset root
+          return 'asset://${relativeUrl.substring(1)}';
+        } else {
+          // Relative to current asset directory
+          // Handle ../ path traversal by normalizing the path
+          List<String> segments = [...dirPath.split('/'), ...relativeUrl.split('/')];
+          List<String> normalized = [];
+          
+          for (var segment in segments) {
+            if (segment == '..' && normalized.isNotEmpty) {
+              normalized.removeLast(); // Go up one directory
+            } else if (segment != '' && segment != '.') {
+              normalized.add(segment);
+            }
+          }
+          
+          final normalizedPath = normalized.join('/');
+          
+          return 'asset://$normalizedPath';
+        }
+      } else if (baseUrl.startsWith('file://')) {
+        // File-relative paths
+        final filePath = baseUrl.replaceFirst('file://', '');
+        final dirPath = filePath.contains('/') 
+            ? filePath.substring(0, filePath.lastIndexOf('/'))
+            : '';
+        
+        if (relativeUrl.startsWith('/')) {
+          // Absolute path relative to file system root
+          return 'file://$relativeUrl';
+        } else {
+          // Relative to current directory
+          // Handle ../ path traversal by normalizing the path
+          List<String> segments = [...dirPath.split('/'), ...relativeUrl.split('/')];
+          List<String> normalized = [];
+          
+          for (var segment in segments) {
+            if (segment == '..' && normalized.isNotEmpty) {
+              normalized.removeLast(); // Go up one directory
+            } else if (segment != '' && segment != '.') {
+              normalized.add(segment);
+            }
+          }
+          
+          final normalizedPath = normalized.join('/');
+          
+          return 'file://$normalizedPath';
+        }
+      } else if (baseUrl.startsWith('http://') || baseUrl.startsWith('https://')) {
+        // Web-relative paths
+        final baseUri = Uri.parse(baseUrl);
+        
+        // Determine if the base URL refers to a file or directory
+        final String path = baseUri.path;
+        final lastSegment = path.contains('/') ? path.split('/').last : '';
+        final isFile = lastSegment.contains('.') && !lastSegment.isEmpty;
+        
+        Uri resolvedUri;
+        if (relativeUrl.startsWith('/')) {
+          // Absolute path relative to domain root
+          resolvedUri = baseUri.replace(path: relativeUrl);
+        } else if (isFile) {
+          // Base URL is a file, resolve against its directory
+          final lastSlash = path.lastIndexOf('/');
+          final directory = lastSlash > 0 ? path.substring(0, lastSlash + 1) : '/';
+          resolvedUri = baseUri.replace(path: '$directory$relativeUrl');
+        } else {
+          // Base URL is a directory
+          final directory = path.endsWith('/') ? path : '$path/';
+          resolvedUri = baseUri.replace(path: '$directory$relativeUrl');
+        }
+        
+        return resolvedUri.toString();
+      }
+    } catch (e) {
+      // In case of any errors, just return the original URL as a fallback
+      return relativeUrl;
+    }
+    
+    // If we couldn't resolve it, return the original URL
+    return relativeUrl;
+  }
+  
   /// Checks if a URL likely points to a markdown document (legacy method)
   bool isLikelyMarkdownLink(String url) {
     return identifyLinkType(url) == LinkType.markdown;
@@ -114,8 +258,11 @@ class _LinkDetectorState extends State<LinkDetector> {
   
   @override
   Widget build(BuildContext context) {
+    // Process markdown to resolve relative image URLs
+    final processedMarkdown = processMarkdownImages(widget.markdown);
+    
     return GptMarkdown(
-      widget.markdown,
+      processedMarkdown,
       onLinkTab: widget.onLinkTap,
       linkBuilder: (context, text, url, style) {
         // Let's go back to the basics but with a custom baseline setting
