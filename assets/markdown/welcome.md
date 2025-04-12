@@ -22,15 +22,6 @@ Try clicking these links:
 - [Anchor Links Demo](anchors_demo.md) - Try out anchor link navigation
 - [Custom Anchor IDs](custom_anchors.md) - Test custom short-form anchor IDs
 
-## Supported Platforms
-
-- Windows
-- macOS
-- Linux
-- iOS
-- Android
-- Web
-
 ## About Vertext
 
 Vertext is built with Flutter and is open source. It aims to provide a simple, streamlined experience for browsing Markdown content on the web and locally.

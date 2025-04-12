@@ -1,9 +1,9 @@
 import 'dart:convert';
-import 'dart:io' if (dart.library.html) 'dart:html' hide Platform;
 import 'package:flutter/foundation.dart' show kIsWeb;
 
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart'
+    show defaultTargetPlatform, TargetPlatform;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:uuid/uuid.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -13,17 +13,17 @@ import 'services/markdown_service.dart';
 import 'models/browser_state.dart';
 import 'models/tab_model.dart';
 import 'widgets/browser_column.dart';
-import 'widgets/status_bar_widget.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+
   // Initialize window manager if on desktop platform (not web)
-  if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || 
-      defaultTargetPlatform == TargetPlatform.linux || 
-      defaultTargetPlatform == TargetPlatform.macOS)) {
+  if (!kIsWeb &&
+      (defaultTargetPlatform == TargetPlatform.windows ||
+          defaultTargetPlatform == TargetPlatform.linux ||
+          defaultTargetPlatform == TargetPlatform.macOS)) {
     await windowManager.ensureInitialized();
-    
+
     // Load window preferences
     final prefs = await SharedPreferences.getInstance();
     bool wasMaximized = prefs.getBool('window_maximized') ?? true;
@@ -31,7 +31,7 @@ void main() async {
     double height = prefs.getDouble('window_height') ?? 800;
     double? left = prefs.getDouble('window_left');
     double? top = prefs.getDouble('window_top');
-    
+
     // Configure window options
     WindowOptions windowOptions = WindowOptions(
       size: Size(width, height),
@@ -39,21 +39,21 @@ void main() async {
       skipTaskbar: false,
       titleBarStyle: TitleBarStyle.normal,
     );
-    
+
     // Apply window options first
     await windowManager.waitUntilReadyToShow(windowOptions, () async {
       if (left != null && top != null) {
         await windowManager.setPosition(Offset(left, top));
       }
       await windowManager.show();
-      
+
       // Maximize if it was maximized before
       if (wasMaximized) {
         await windowManager.maximize();
       }
     });
   }
-  
+
   runApp(const VertextApp());
 }
 
@@ -69,9 +69,10 @@ class _VertextAppState extends State<VertextApp> with WindowListener {
   void initState() {
     super.initState();
     // Add window listener to save window state on desktop platforms
-    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || 
-        defaultTargetPlatform == TargetPlatform.linux || 
-        defaultTargetPlatform == TargetPlatform.macOS)) {
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.macOS)) {
       windowManager.addListener(this);
     }
   }
@@ -79,9 +80,10 @@ class _VertextAppState extends State<VertextApp> with WindowListener {
   @override
   void dispose() {
     // Remove window listener when app is disposed
-    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || 
-        defaultTargetPlatform == TargetPlatform.linux || 
-        defaultTargetPlatform == TargetPlatform.macOS)) {
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.macOS)) {
       windowManager.removeListener(this);
     }
     super.dispose();
@@ -91,9 +93,10 @@ class _VertextAppState extends State<VertextApp> with WindowListener {
   @override
   void onWindowClose() async {
     await _saveWindowState();
-    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || 
-        defaultTargetPlatform == TargetPlatform.linux || 
-        defaultTargetPlatform == TargetPlatform.macOS)) {
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.macOS)) {
       await windowManager.destroy();
     }
   }
@@ -121,29 +124,28 @@ class _VertextAppState extends State<VertextApp> with WindowListener {
 
   // Helper method to save window state
   Future<void> _saveWindowState() async {
-    if (!kIsWeb && (defaultTargetPlatform == TargetPlatform.windows || 
-        defaultTargetPlatform == TargetPlatform.linux || 
-        defaultTargetPlatform == TargetPlatform.macOS)) {
+    if (!kIsWeb &&
+        (defaultTargetPlatform == TargetPlatform.windows ||
+            defaultTargetPlatform == TargetPlatform.linux ||
+            defaultTargetPlatform == TargetPlatform.macOS)) {
       try {
         final prefs = await SharedPreferences.getInstance();
-        
+
         // Save window maximized state
         bool isMaximized = await windowManager.isMaximized();
         await prefs.setBool('window_maximized', isMaximized);
-        
+
         // Only save size and position if not maximized
         if (!isMaximized) {
           Size size = await windowManager.getSize();
           await prefs.setDouble('window_width', size.width);
           await prefs.setDouble('window_height', size.height);
-          
+
           Offset position = await windowManager.getPosition();
           await prefs.setDouble('window_left', position.dx);
           await prefs.setDouble('window_top', position.dy);
         }
-        
-      } catch (e) {
-      }
+      } catch (e) {}
     }
   }
 
@@ -172,36 +174,36 @@ class BrowserScreen extends StatefulWidget {
 class _BrowserScreenState extends State<BrowserScreen> {
   // Service for fetching markdown content
   final MarkdownService _markdownService = MarkdownService();
-  
+
   // Default homepage URL is now a local asset
   static const String _homeUrl = 'asset://assets/markdown/welcome.md';
-  
+
   // Storage key for saving browser state
   static const String _storageKey = 'vertext_browser_state';
-  
+
   // Browser state for tab management
   late BrowserState _browserState;
-  
+
   // Loading state for initial load
   bool _isInitializing = true;
-  
+
   // User preferences
   bool _autoOpenNonMarkdownLinks = false;
-  
+
   // UUID generator for tab IDs
   final Uuid _uuid = const Uuid();
-  
+
   // Track hovered URLs for status bar (not used currently)
   String? _hoveredLinkUrl;
-  
+
   // Status bar references to update hovered link state
   final leftStatusBarKey = GlobalKey();
   final rightStatusBarKey = GlobalKey();
-  
+
   @override
   void initState() {
     super.initState();
-    
+
     // Create a default browser state (will be replaced if we can restore)
     final initialTab = TabModel(
       id: _uuid.v4(),
@@ -210,90 +212,81 @@ class _BrowserScreenState extends State<BrowserScreen> {
       content: _getWelcomeText(),
       isLoading: true,
     );
-    
+
     _browserState = BrowserState(
       homeUrl: _homeUrl,
       initialLeftTab: initialTab,
     );
-    
+
     // Attempt to restore state, then load any necessary content
     _restoreBrowserState().then((_) {
       // After restoring (or using default), load content for active tabs
       if (_browserState.leftColumn.activeTab != null) {
-        _loadTabContent(
-          _browserState.leftColumn.activeTab!,
-          _browserState.leftColumn.activeTab!.url,
-          null
-        );
+        _loadTabContent(_browserState.leftColumn.activeTab!,
+            _browserState.leftColumn.activeTab!.url, null);
       }
-      
+
       if (_browserState.rightColumn.activeTab != null) {
-        _loadTabContent(
-          _browserState.rightColumn.activeTab!,
-          _browserState.rightColumn.activeTab!.url,
-          null
-        );
+        _loadTabContent(_browserState.rightColumn.activeTab!,
+            _browserState.rightColumn.activeTab!.url, null);
       }
     });
   }
-  
+
   /// Attempts to restore browser state from storage.
   /// Returns true if successful, false otherwise.
   Future<bool> _restoreBrowserState() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final stateJson = prefs.getString(_storageKey);
-      
+
       if (stateJson != null) {
         // Attempt to decode and restore state
         final Map<String, dynamic> stateMap = jsonDecode(stateJson);
         final restoredState = BrowserState.fromJson(stateMap);
-        
+
         setState(() {
           _browserState = restoredState;
           _isInitializing = false;
         });
-        
+
         return true;
       }
-    } catch (e) {
-    }
-    
+    } catch (e) {}
+
     return false;
   }
-  
+
   /// Saves the current browser state to storage.
   Future<void> _saveBrowserState() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final stateMap = _browserState.toJson();
       final stateJson = jsonEncode(stateMap);
-      
+
       await prefs.setString(_storageKey, stateJson);
-    } catch (e) {
-    }
+    } catch (e) {}
   }
-  
+
   // Load content for a tab
-  Future<void> _loadTabContent(TabModel tab, String url, String? baseUrl) async {
+  Future<void> _loadTabContent(
+      TabModel tab, String url, String? baseUrl) async {
     // Handle simple markdown filenames with http base URLs
-    if (baseUrl != null && 
-        baseUrl.startsWith('http') && 
-        !url.contains('://') && 
+    if (baseUrl != null &&
+        baseUrl.startsWith('http') &&
+        !url.contains('://') &&
         url.contains('.') &&
         !url.contains('/')) {
-      
       try {
         final baseUri = Uri.parse(baseUrl);
         final newUrl = '${baseUri.scheme}://${baseUri.host}/$url';
-        
+
         url = newUrl;
         tab.url = newUrl;
         baseUrl = null; // Don't need baseUrl for absolute URLs
-      } catch (e) {
-      }
+      } catch (e) {}
     }
-    
+
     // Set a timeout for loading
     bool timeoutOccurred = false;
     Future.delayed(const Duration(seconds: 8), () {
@@ -301,36 +294,37 @@ class _BrowserScreenState extends State<BrowserScreen> {
         timeoutOccurred = true;
         setState(() {
           // Find which column the tab is in
-          final inLeftColumn = _browserState.leftColumn.tabs.any((t) => t.id == tab.id);
-          final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
-          
+          final inLeftColumn =
+              _browserState.leftColumn.tabs.any((t) => t.id == tab.id);
+          final column = inLeftColumn
+              ? _browserState.leftColumn
+              : _browserState.rightColumn;
+
           // Find the tab index
           final tabIndex = column.tabs.indexWhere((t) => t.id == tab.id);
           if (tabIndex != -1) {
             tab.isLoading = false;
-            tab.content = _getErrorMarkdown(
-              'Loading Timed Out',
-              'The request to $url took too long to complete.'
-            );
+            tab.content = _getErrorMarkdown('Loading Timed Out',
+                'The request to $url took too long to complete.');
             tab.title = 'Error';
           }
         });
       }
     });
-    
+
     try {
       setState(() {
         // Loading state update
       });
-      
+
       final result = await _markdownService.fetchContent(url, baseUrl);
-      
+
       // Only update if a timeout didn't occur
       if (!timeoutOccurred) {
         // If content is not markdown, offer to open in system browser
         if (!result.isMarkdown) {
           await _showNonMarkdownDialog(result.url, result.contentType);
-          
+
           // Update tab with a message indicating external opening
           setState(() {
             tab.isLoading = false;
@@ -345,10 +339,10 @@ _Click on another markdown link to load content in this pane._
 ''';
             tab.title = 'External Content';
             tab.url = result.url; // Update to the resolved URL
-            
+
             _isInitializing = false;
           });
-          
+
           // Save state after updating tab content
           _saveBrowserState();
         } else {
@@ -358,10 +352,10 @@ _Click on another markdown link to load content in this pane._
             tab.content = result.content;
             tab.title = _markdownService.extractTitle(result.content, 'Page');
             tab.url = result.url; // Update to the resolved URL
-            
+
             _isInitializing = false;
           });
-          
+
           // Save state after updating tab content
           _saveBrowserState();
         }
@@ -371,29 +365,20 @@ _Click on another markdown link to load content in this pane._
         setState(() {
           tab.isLoading = false;
           tab.content = _getErrorMarkdown(
-            'Error Loading Content',
-            'Error details: ${e.toString()}'
-          );
+              'Error Loading Content', 'Error details: ${e.toString()}');
           tab.title = 'Error';
-          
+
           _isInitializing = false;
         });
       }
     }
   }
-  
+
   // Get static welcome text as fallback
   String _getWelcomeText() {
     return '''# Welcome to Vertext!
 
 This is a browser for the indie web and local markdown files, written in Flutter.
-
-The browser is lightweight and fast, with planned versions for:
-* iOS
-* Android
-* Mac
-* Windows desktop
-* Web
 
 ## Features
 * Renders Markdown content only
@@ -411,7 +396,7 @@ The browser is lightweight and fast, with planned versions for:
 * [Learn More](https://www.markdownguide.org)
 ''';
   }
-  
+
   // Helper to create error markdown
   String _getErrorMarkdown(String title, String details) {
     return '''# $title
@@ -431,68 +416,70 @@ Please check the URL and try again.
   void _handleLinkHover(String? url, bool isLeft) {
     // BrowserColumn now handles hover state internally
   }
-  
+
   // Method to handle link taps
   void _handleLinkTap(String url, String title, TabModel? sourceTab) {
     // Only process if URL is valid
     if (url.isEmpty) {
       return;
     }
-    
+
     // Handle anchor links (e.g., #installation-instructions)
     // Note: These are now handled directly in BrowserColumn._handleLinkTap
     if (url.startsWith('#')) {
       return;
     }
-    
+
     // Determine which column the link was clicked from
-    final clickedFromActiveLeftTab = sourceTab != null && 
+    final clickedFromActiveLeftTab = sourceTab != null &&
         _browserState.leftColumn.tabs.any((tab) => tab.id == sourceTab.id);
-    
-    final sourceColumn = clickedFromActiveLeftTab 
-        ? _browserState.leftColumn 
+
+    final sourceColumn = clickedFromActiveLeftTab
+        ? _browserState.leftColumn
         : _browserState.rightColumn;
-    
-    final targetColumn = clickedFromActiveLeftTab 
-        ? _browserState.rightColumn 
+
+    final targetColumn = clickedFromActiveLeftTab
+        ? _browserState.rightColumn
         : _browserState.leftColumn;
-    
+
     // Use the source tab's URL as the base URL, not just the active tab
     // This ensures relative links on web pages use their own domain as base
     String? baseUrl;
     if (sourceTab != null) {
       baseUrl = sourceTab.url;
     }
-    
+
     // Store original URL for logging
     final originalUrl = url;
-    
+
     // Handle web domains with relative links
     // If the base URL is from a web domain and this is a relative link,
     // ensure it becomes a full URL to that domain
     if (baseUrl != null && baseUrl.startsWith('http')) {
       // If this is a simple filename or other relative path without protocol
-      if (!url.contains('://') && !url.startsWith('http://') && !url.startsWith('https://')) {
+      if (!url.contains('://') &&
+          !url.startsWith('http://') &&
+          !url.startsWith('https://')) {
         try {
           final baseUri = Uri.parse(baseUrl);
           String newUrl;
-          
+
           if (url.startsWith('/')) {
             // Absolute path relative to domain (e.g., /path/file.md)
             newUrl = '${baseUri.scheme}://${baseUri.host}$url';
           } else {
             // Simple filename or relative path (e.g., file.md or dir/file.md)
-            newUrl = '${baseUri.scheme}://${baseUri.host}/${url.startsWith('./') ? url.substring(2) : url}';
+            newUrl =
+                '${baseUri.scheme}://${baseUri.host}/${url.startsWith('./') ? url.substring(2) : url}';
           }
-          
+
           // Use the absolute URL and clear the base URL since it's now an absolute URL
           url = newUrl;
           baseUrl = null;
-        } catch (e) {
-        }
+        } catch (e) {}
       }
     }
-    
+
     // Create a new tab for the link
     final newTab = TabModel(
       id: _uuid.v4(),
@@ -500,17 +487,17 @@ Please check the URL and try again.
       title: title.isNotEmpty ? title : 'Loading...',
       isLoading: true,
     );
-    
+
     setState(() {
       // Add tab to target column and make it active
       targetColumn.tabs.add(newTab);
       targetColumn.activeTabIndex = targetColumn.tabs.length - 1;
     });
-    
+
     // Load content for the new tab, passing the baseUrl for proper resolution
     _loadTabContent(newTab, url, baseUrl);
   }
-  
+
   // Opens a URL in the system's default browser
   Future<void> _openInSystemBrowser(String url) async {
     try {
@@ -521,7 +508,6 @@ Please check the URL and try again.
         throw 'Could not launch $url';
       }
     } catch (e) {
-      
       // Show an error dialog
       if (mounted) {
         showDialog(
@@ -529,7 +515,8 @@ Please check the URL and try again.
           builder: (BuildContext context) {
             return AlertDialog(
               title: const Text('Failed to Open URL'),
-              content: Text('Could not open $url in your browser.\n\nError: $e'),
+              content:
+                  Text('Could not open $url in your browser.\n\nError: $e'),
               actions: <Widget>[
                 TextButton(
                   child: const Text('OK'),
@@ -542,7 +529,7 @@ Please check the URL and try again.
       }
     }
   }
-  
+
   // Show dialog to ask user about opening non-markdown content
   Future<void> _showNonMarkdownDialog(String url, String contentType) async {
     if (_autoOpenNonMarkdownLinks) {
@@ -550,12 +537,12 @@ Please check the URL and try again.
       _openInSystemBrowser(url);
       return;
     }
-    
+
     // Format content type for display
-    String formattedType = contentType.isEmpty 
-        ? 'non-markdown' 
+    String formattedType = contentType.isEmpty
+        ? 'non-markdown'
         : contentType.split(';').first.trim();
-    
+
     // Determine content type name for friendly display
     String contentTypeName = 'file';
     if (contentType.contains('html')) {
@@ -569,7 +556,7 @@ Please check the URL and try again.
     } else if (contentType.contains('audio/')) {
       contentTypeName = 'audio file';
     }
-    
+
     if (mounted) {
       final result = await showDialog<bool>(
         context: context,
@@ -580,7 +567,8 @@ Please check the URL and try again.
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('This link points to a $contentTypeName that cannot be displayed in Vertext.'),
+                Text(
+                    'This link points to a $contentTypeName that cannot be displayed in Vertext.'),
                 const SizedBox(height: 12),
                 Text('Would you like to open it in your default browser?'),
                 const SizedBox(height: 8),
@@ -632,7 +620,7 @@ Please check the URL and try again.
           );
         },
       );
-      
+
       if (result == true) {
         _openInSystemBrowser(url);
       }
@@ -643,13 +631,14 @@ Please check the URL and try again.
   void _handleNewTab(bool inLeftColumn) {
     _showUrlPromptDialog(context, inLeftColumn);
   }
-  
+
   // Show dialog to prompt for URL
-  Future<void> _showUrlPromptDialog(BuildContext context, bool inLeftColumn) async {
+  Future<void> _showUrlPromptDialog(
+      BuildContext context, bool inLeftColumn) async {
     final textController = TextEditingController(text: 'https://');
-    
+
     if (!mounted) return;
-    
+
     final String? url = await showDialog<String>(
       context: context,
       builder: (BuildContext context) {
@@ -703,25 +692,26 @@ Please check the URL and try again.
         );
       },
     );
-    
+
     if (url != null && url.isNotEmpty) {
-      final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
+      final column =
+          inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
       final newTab = column.createTab(
         url: url,
         title: 'Loading...',
       );
-      
+
       setState(() {
         column.activeTabIndex = column.tabs.length - 1;
       });
-      
+
       _loadTabContent(newTab, url, null);
-      
+
       // Save state after adding a new tab
       _saveBrowserState();
     }
   }
-  
+
   // Pick a file using system dialog
   Future<String?> _pickFile() async {
     try {
@@ -730,7 +720,7 @@ Please check the URL and try again.
         allowedExtensions: ['md', 'markdown', 'txt'],
         allowMultiple: false,
       );
-      
+
       if (result != null && result.files.isNotEmpty) {
         final file = result.files.first;
         if (file.path != null) {
@@ -743,33 +733,34 @@ Please check the URL and try again.
       return null;
     }
   }
-  
+
   // Handle selecting a tab
   void _handleSelectTab(bool inLeftColumn, int index) {
-    final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
-    
+    final column =
+        inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
+
     // Only process if it's actually a different tab
     if (column.activeTabIndex != index) {
       setState(() {
         column.activeTabIndex = index;
       });
-      
+
       // Save state after changing active tab
       _saveBrowserState();
-      
     }
   }
-  
+
   // Handle closing a tab
   void _handleCloseTab(bool inLeftColumn, int index) {
-    final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
-    
+    final column =
+        inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
+
     setState(() {
       // Add to closed tabs
       if (index >= 0 && index < column.tabs.length) {
         column.closeTab(index);
       }
-      
+
       // Create a new home tab if the left column is now empty
       if (inLeftColumn && column.tabs.isEmpty) {
         final newTab = _browserState.ensureLeftColumnHasTab();
@@ -778,88 +769,92 @@ Please check the URL and try again.
         }
       }
     });
-    
+
     // Save state after closing a tab
     _saveBrowserState();
   }
-  
+
   // Handle reopening a closed tab
   void _handleReopenTab(bool inLeftColumn) {
-    final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
+    final column =
+        inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
     final reopenedTab = column.reopenClosedTab();
-    
+
     if (reopenedTab != null) {
       setState(() {
         // Update UI
       });
-      
+
       // Save state after reopening a tab
       _saveBrowserState();
-      
+
       // Refresh content if needed
       if (reopenedTab.content.isEmpty || reopenedTab.isLoading) {
         _loadTabContent(reopenedTab, reopenedTab.url, null);
       }
     }
   }
-  
+
   // Handle reordering tabs within a column
   void _handleReorderTab(bool inLeftColumn, int oldIndex, int newIndex) {
-    final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
-    
+    final column =
+        inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
+
     setState(() {
       if (oldIndex < column.tabs.length && newIndex < column.tabs.length) {
         final tab = column.tabs.removeAt(oldIndex);
         column.tabs.insert(newIndex, tab);
-        
+
         // Adjust active tab index if needed
         if (column.activeTabIndex == oldIndex) {
           column.activeTabIndex = newIndex;
-        } else if (oldIndex < column.activeTabIndex && newIndex >= column.activeTabIndex) {
+        } else if (oldIndex < column.activeTabIndex &&
+            newIndex >= column.activeTabIndex) {
           column.activeTabIndex--;
-        } else if (oldIndex > column.activeTabIndex && newIndex <= column.activeTabIndex) {
+        } else if (oldIndex > column.activeTabIndex &&
+            newIndex <= column.activeTabIndex) {
           column.activeTabIndex++;
         }
       }
     });
-    
+
     // Save state after reordering tabs
     _saveBrowserState();
   }
-  
+
   // Handle moving a tab to the other column
   void _handleMoveToOtherColumn(bool fromLeft, TabModel tab) {
     setState(() {
-      final tabIndex = fromLeft 
+      final tabIndex = fromLeft
           ? _browserState.leftColumn.tabs.indexWhere((t) => t.id == tab.id)
           : _browserState.rightColumn.tabs.indexWhere((t) => t.id == tab.id);
-      
+
       if (tabIndex != -1) {
         _browserState.moveTabBetweenColumns(fromLeft, tabIndex);
       }
     });
-    
+
     // Save state after moving a tab
     _saveBrowserState();
   }
-
 
   // Open a local file in the specified column
   void _openLocalFile(bool inLeftColumn) async {
     final fileUrl = await _pickFile();
     if (fileUrl != null) {
-      final column = inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
+      final column =
+          inLeftColumn ? _browserState.leftColumn : _browserState.rightColumn;
       final newTab = column.createTab(
         url: fileUrl,
         title: 'Loading...',
       );
-      
+
       setState(() {
         column.activeTabIndex = column.tabs.length - 1;
       });
-      
+
       _loadTabContent(newTab, fileUrl, null);
-      
+
       // Save state after adding a new tab
       _saveBrowserState();
     }
@@ -877,7 +872,7 @@ Please check the URL and try again.
               backgroundColor: Colors.blue.shade100,
               valueColor: AlwaysStoppedAnimation<Color>(Colors.blue.shade700),
             ),
-          
+
           // Main content area
           Expanded(
             child: Row(
@@ -890,16 +885,18 @@ Please check the URL and try again.
                     onSelectTab: (index) => _handleSelectTab(true, index),
                     onCloseTab: (index) => _handleCloseTab(true, index),
                     onReopenTab: () => _handleReopenTab(true),
-                    onReorderTab: (oldIndex, newIndex) => 
+                    onReorderTab: (oldIndex, newIndex) =>
                         _handleReorderTab(true, oldIndex, newIndex),
-                    onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(true, tab),
-                    onLinkTap: (url, title, tab) => _handleLinkTap(url, title, tab),
+                    onMoveToOtherColumn: (tab) =>
+                        _handleMoveToOtherColumn(true, tab),
+                    onLinkTap: (url, title, tab) =>
+                        _handleLinkTap(url, title, tab),
                     onLinkHover: _handleLinkHover,
                     statusBarKey: leftStatusBarKey,
                     isLeft: true,
                   ),
                 ),
-                
+
                 // Right column (50% width)
                 Expanded(
                   child: BrowserColumn(
@@ -908,10 +905,12 @@ Please check the URL and try again.
                     onSelectTab: (index) => _handleSelectTab(false, index),
                     onCloseTab: (index) => _handleCloseTab(false, index),
                     onReopenTab: () => _handleReopenTab(false),
-                    onReorderTab: (oldIndex, newIndex) => 
+                    onReorderTab: (oldIndex, newIndex) =>
                         _handleReorderTab(false, oldIndex, newIndex),
-                    onMoveToOtherColumn: (tab) => _handleMoveToOtherColumn(false, tab),
-                    onLinkTap: (url, title, tab) => _handleLinkTap(url, title, tab),
+                    onMoveToOtherColumn: (tab) =>
+                        _handleMoveToOtherColumn(false, tab),
+                    onLinkTap: (url, title, tab) =>
+                        _handleLinkTap(url, title, tab),
                     onLinkHover: _handleLinkHover,
                     statusBarKey: rightStatusBarKey,
                     isLeft: false,
@@ -924,5 +923,4 @@ Please check the URL and try again.
       ),
     );
   }
-  
 }
