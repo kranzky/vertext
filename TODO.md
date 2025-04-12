@@ -2,15 +2,11 @@
 
 ## Now
 
-* Get signed windows and mac builds uploaded
-* Publish an mmm version of my diary at https://kranzky.github.io/mmm/index.md
+* Get signed windows and mac builds uploaded; version 0.5
+* Replace vertext.kranzky.com with a page describing project with links to
+  download. What is the Massive Markdown Matrix?
 
 ## Soon
-
-* Make the web version open non-markdown links in a new tab.
-* Get the file open dialog working for the web version.
-
-## Later
 
 * Full UI redesign.
   + Only the left column has tabs, and these can be arranged vertically in a new
@@ -31,12 +27,20 @@
     individual entries can be deleted.
   + When viewing a document a table of contents can be accessed.
   + The URL of either column can be copied by tapping an icon in the status bar.
+  + Need a means of copying a link.
 * Different column layout on mobile in portrait mode. Either the two columns are
   stacked on top of each other or the user can quickly switch between the left
   and right columns.
 * Implement a night mode.
 * Add a mode to show the table of contents, perhaps in a pop-out sidebar.
 * Implement themes (fonts, colours, sizes etc).
+* Get android and iphone builds working
+* Release version 1.0
+
+## Later
+
+* Make the web version open non-markdown links in a new tab.
+* Get the file open dialog working for the web version.
 * Strip out HTML tags (this will need to use the markdown parser to make sure
   that we still allow HTML tags in code blocks, for example).
 * Allow :these: kinds of emojis to work (will probably require similar parsing
@@ -44,4 +48,3 @@
 * Get code blocks working properly:
   + Monospace font
   + Syntax highlighting
-* Package for distribution and launch version 1.0.
