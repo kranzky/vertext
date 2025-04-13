@@ -1,5 +1,16 @@
 # Codesigning guide for Vertext
 
+To change the app icon for all platforms, follow these steps:
+
+  1. Prepare your icon files:
+    - Create a high-resolution icon file (ideally 1024x1024 pixels) and save it as assets/icons/app_icon.png
+    - For Android adaptive icons, create a foreground image and save it as assets/icons/app_icon_foreground.png
+  2. Run the icon generator:
+  After placing your icon files in the correct locations, run:
+  flutter pub run flutter_launcher_icons
+
+  This will generate all the necessary icon files for each platform with the correct sizes and formats.
+
 ## macOS
 
 ### Build a release version of the app
