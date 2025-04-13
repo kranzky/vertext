@@ -1,4 +1,4 @@
-package com.example.vertext
+package com.kranzky.vertext
 
 import io.flutter.embedding.android.FlutterActivity
 
