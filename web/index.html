@@ -1,81 +1,169 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-  <!--
-    If you are serving your web app in a path other than the root, change the
-    href value below to reflect the base path you are serving from.
-
-    The path provided below has to start and end with a slash "/" in order for
-    it to work correctly.
-
-    For more details:
-    * https://developer.mozilla.org/en-US/docs/Web/HTML/Element/base
-
-    This is a placeholder for base href that will be replaced by the value of
-    the `--base-href` argument provided to `flutter build`.
-  -->
-  <base href="$FLUTTER_BASE_HREF">
-
   <meta charset="UTF-8">
-  <meta content="IE=Edge" http-equiv="X-UA-Compatible">
-  <meta name="description" content="A new Flutter project.">
-
-  <!-- iOS meta tags & icons -->
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black">
-  <meta name="apple-mobile-web-app-title" content="vertext">
-  <link rel="apple-touch-icon" href="icons/Icon-192.png">
-
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Vertext - A lightweight markdown browser">
+  
   <!-- Favicon -->
   <link rel="icon" type="image/png" href="favicon.png"/>
-
-  <title>vertext</title>
-  <link rel="manifest" href="manifest.json">
+  
+  <title>Vertext - Markdown Matrix Browser</title>
+  
+  <style>
+    :root {
+      --gradient-start: #e91e63;
+      --gradient-end: #3f51b5;
+      --text-color: #ffffff;
+      --background-color: #121212;
+      --card-background: rgba(255, 255, 255, 0.05);
+      --card-hover: rgba(255, 255, 255, 0.1);
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--background-color);
+      color: var(--text-color);
+      line-height: 1.6;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+    }
+    
+    .container {
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 2rem;
+    }
+    
+    .logo {
+      width: 150px;
+      height: 150px;
+      margin-bottom: 2rem;
+      filter: drop-shadow(0 0 10px rgba(0, 0, 0, 0.3));
+    }
+    
+    h1 {
+      font-size: 2.5rem;
+      margin-bottom: 1.5rem;
+      background: linear-gradient(to right, var(--gradient-start), var(--gradient-end));
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      font-weight: 700;
+    }
+    
+    .subtitle {
+      font-size: 1.2rem;
+      max-width: 600px;
+      margin: 0 auto 3rem auto;
+      opacity: 0.9;
+    }
+    
+    .download-section {
+      margin-top: 2rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .download-btn {
+      background: linear-gradient(to right, var(--gradient-start), var(--gradient-end));
+      color: white;
+      text-decoration: none;
+      padding: 0.8rem 2rem;
+      border-radius: 30px;
+      font-weight: 600;
+      font-size: 1.1rem;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+      transition: transform 0.2s, box-shadow 0.2s;
+      margin-bottom: 1rem;
+      display: inline-flex;
+      align-items: center;
+    }
+    
+    .download-btn:hover {
+      transform: translateY(-3px);
+      box-shadow: 0 6px 25px rgba(0, 0, 0, 0.3);
+    }
+    
+    .download-btn svg {
+      margin-right: 10px;
+    }
+    
+    .platform-label {
+      font-size: 0.9rem;
+      opacity: 0.7;
+      margin-top: 0.5rem;
+    }
+    
+    .coming-soon {
+      margin-top: 2rem;
+      opacity: 0.6;
+      font-size: 0.9rem;
+    }
+    
+    .footer {
+      margin-top: 4rem;
+      font-size: 0.8rem;
+      opacity: 0.5;
+    }
+    
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 2rem;
+      }
+      
+      .subtitle {
+        font-size: 1rem;
+      }
+      
+      .logo {
+        width: 120px;
+        height: 120px;
+      }
+    }
+  </style>
 </head>
 <body>
-  <script src="flutter_bootstrap.js" async></script>
-  <script>
-    // CORS proxy for web version
-    window.addEventListener('load', function() {
-      if (window.FLUTTER_CORS_PROXY === undefined) {
-        window.FLUTTER_CORS_PROXY = {
-          // Track which proxy to use (for fallback)
-          _proxyIndex: 0,
-          
-          // List of available CORS proxies
-          _proxies: [
-            // Format: url => `${proxyUrl}${encodeURIComponent(url)}` or similar
-            url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-            url => `https://corsproxy.io/?${encodeURIComponent(url)}`,
-            // More reliable CORS proxies
-            url => `https://corsproxy.org/?${encodeURIComponent(url)}`,
-            url => `https://cors.bridged.cc/${url}`
-          ],
-          
-          // Add domains that need CORS bypassing
-          isCorsNeeded: function(url) {
-            try {
-              const urlObj = new URL(url);
-              // Add domains that need CORS handling
-              return urlObj.hostname === 'mmm.kranzky.com';
-            } catch(e) {
-              return false;
-            }
-          },
-          
-          // Get proxy URL with fallback mechanism
-          getProxyUrl: function(originalUrl) {
-            // Use current proxy from the list
-            const proxyFormatter = this._proxies[this._proxyIndex];
-            
-            // Rotate to next proxy for next request (for automatic fallback)
-            this._proxyIndex = (this._proxyIndex + 1) % this._proxies.length;
-            
-            return proxyFormatter(originalUrl);
-          }
-        };
-      }
-    });
-  </script>
+  <div class="container">
+    <img src="icons/Icon-512.png" alt="Vertext Logo" class="logo">
+    
+    <h1>What is the Massive Markdown Matrix?</h1>
+    
+    <p class="subtitle">
+      Vertext is a lightweight browser for the MMM.
+    </p>
+    
+    <div class="download-section">
+      <a href="Vertext-0.5.0.dmg" class="download-btn">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+          <polyline points="7 10 12 15 17 10"></polyline>
+          <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Download Vertext
+      </a>
+      <div class="platform-label">macOS (DMG) • Version 0.5.0</div>
+    </div>
+    
+    <div class="coming-soon">
+      Windows and mobile versions coming soon
+    </div>
+    
+    <div class="footer">
+      © 2025 Lloyd Kranzky
+    </div>
+  </div>
 </body>
 </html>

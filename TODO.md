@@ -2,18 +2,17 @@
 
 ## Now
 
-* Get signed windows and mac builds uploaded; version 0.5
-* Replace vertext.kranzky.com with a page describing project with links to
-  download. What is the Massive Markdown Matrix?
+* Get signed windows build uploaded
 
 ## Soon
 
 * Full UI redesign.
-  + Only the left column has tabs, and these can be arranged vertically in a new
+  + Only the left column has tabs, and these are arranged vertically in a new
     column on the LHS of the display.
-    - The icons to add a tab and re-open a tab remain for the left column only,
+    - The icons to close a tab and re-open a tab remain for the left column only,
       and are at the top of the tab column. Remove the icon to switch tabs.
-  + Links always open in the right tab, replacing what was there before.
+    - The right column has icons to open a file or url and save to a new tab.
+  + Links always open in the right column, replacing what was there before.
     - The exception is that if the link is already open, the tab it is in will
       be brought to front, and a toast message will alert the user.
   + The right column can be saved to a tab, and has back/forward buttons to
@@ -25,20 +24,17 @@
   + Tabs can either be closed or saved (which also closes them, but adds a link
     to the bookmarks). The bookmarks can be viewed and re-ordered, and
     individual entries can be deleted.
-  + When viewing a document a table of contents can be accessed.
   + The URL of either column can be copied by tapping an icon in the status bar.
-  + Need a means of copying a link.
-* Different column layout on mobile in portrait mode. Either the two columns are
-  stacked on top of each other or the user can quickly switch between the left
-  and right columns.
+* Single column for narrow mobile layouts that combines both columns (showing
+  either a tab if selected or the content just clicked on).
 * Implement a night mode.
-* Add a mode to show the table of contents, perhaps in a pop-out sidebar.
-* Implement themes (fonts, colours, sizes etc).
 * Get android and iphone builds working
 * Release version 1.0
 
 ## Later
 
+* Add a mode to show the table of contents, perhaps in a pop-out sidebar.
+* Implement themes (fonts, colours, sizes etc).
 * Make the web version open non-markdown links in a new tab.
 * Get the file open dialog working for the web version.
 * Strip out HTML tags (this will need to use the markdown parser to make sure

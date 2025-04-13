@@ -19,23 +19,42 @@ flutter build macos --release
 
 ### Sign the app
 
-codesign --force --deep --sign "Developer ID Application: Your Name (TEAM_ID)" /path/to/vertext.app
+codesign --force --deep --options runtime --sign "Developer ID Application: Jason Hutchens (869X25LQ6F)" build/macos/Build/Products/Release/Vertext.app
 
 ### Verify signature
 
-codesign --verify --verbose /path/to/vertext.app
+codesign --verify --verbose build/macos/Build/Products/Release/Vertext.app
 
 ### Create DMG with signing
 
-create-dmg --volname "Vertext" --window-pos 200 120 --window-size 800 400 --icon-size 100 --icon "vertext.app" 200 190 --hide-extension "vertext.app" --app-drop-link 600 185 --codesign "Developer ID Application: Your Name (TEAM_ID)" Vertext-1.0.0-signed.dmg /path/to/vertext.app
+create-dmg --volname "Vertext" --window-pos 200 120 --window-size 800 400 --icon-size 100 --icon "vertext.app" 200 190 --hide-extension "vertext.app" --app-drop-link 600 185 --codesign "Developer ID Application: Jason Hutchens (869X25LQ6F)" Vertext-0.5.0-signed.dmg build/macos/Build/Products/Release/Vertext.app
 
 ### Submit for notarization
 
-xcrun notarytool submit Vertext-1.0.0-signed.dmg --apple-id your.email@example.com --team-id TEAM_ID --wait
+#### Set up keychain profile (one-time setup)
+```
+xcrun notarytool store-credentials "notary-profile" --apple-id jasonhutchens@gmail.com --team-id 869X25LQ6F --password <your-app-specific-password>
+```
+Note: You'll need to generate an app-specific password at https://appleid.apple.com in the Security section.
+
+#### Submit using keychain profile (recommended)
+```
+xcrun notarytool submit Vertext-0.5.0-signed.dmg --keychain-profile "notary-profile" --wait
+```
+
+#### Or submit with password directly
+```
+xcrun notarytool submit Vertext-0.5.0-signed.dmg --apple-id jasonhutchens@gmail.com --team-id 869X25LQ6F --password <your-app-specific-password> --wait
+```
+
+#### Check notarization status (if needed)
+```
+xcrun notarytool log <submission-id> --keychain-profile "notary-profile"
+```
 
 ### Staple notarization ticket
 
-xcrun stapler staple Vertext-1.0.0-signed.dmg
+xcrun stapler staple Vertext-0.5.0-signed.dmg
 
 ## Windows
 
